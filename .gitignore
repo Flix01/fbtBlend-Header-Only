@@ -1,0 +1,94 @@
+# Prerequisites
+*.d
+
+# Object files
+*.o
+*.ko
+*.obj
+*.elf
+
+# Linker output
+*.ilk
+*.map
+*.exp
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Libraries
+*.lib
+*.a
+*.la
+*.lo
+
+# Shared objects (inc. Windows DLLs)
+*.dll
+*.so
+*.so.*
+*.dylib
+
+# Executables
+*.exe
+*.out
+*.app
+*.i*86
+*.x86_64
+*.hex
+
+# Debug files
+*.dSYM/
+*.su
+*.idb
+*.pdb
+
+# Kernel Module Compile Results
+*.mod*
+*.cmd
+.tmp_versions/
+modules.order
+Module.symvers
+Mkfile.old
+dkms.conf
+
+# Other Stuff
+**/reps/
+reps/
+**/*.sh
+**/*.blend
+**/*.blend1
+
+tests/freeglut.dll
+tests/glut.dll
+tests/glut32.dll
+tests/html/
+tests/*.png
+tests/*.jpg
+docs/
+reps/
+tests/reps/
+*.pro
+*.user
+*.cfg
+*.ini
+tests/Makefile
+*.exe
+Tests/test_im*
+Tests/test_shadows
+Tests/test_teapot
+Tests/test_matrix_stack
+Tests/test_im
+Tests/test_sdf
+glImmediateMode.h
+obj.h
+Sdf/
+fbtBlendUpdater/fbtBlendUpdater
+
+
+
+
+
+
+
+
+
