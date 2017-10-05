@@ -83,6 +83,8 @@ glImmediateMode.h
 obj.h
 Sdf/
 fbtBlendUpdater/fbtBlendUpdater
+tests/testConsole
+tests/testGlut
 
 
 
