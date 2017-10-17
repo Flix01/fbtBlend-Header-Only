@@ -5,6 +5,9 @@
 
 // Can be compiler without "FBT_USE_GZ_FILE=1" and  -lz (zlib.lib) too, but test.blend must be uncompressed
 
+// Emscripten: (requires a file named test.blend to be preloaded)
+// em++ -O2 -fno-rtti -fno-exceptions -o html/test_console.html testConsole.cpp -I"./" -I"../" --preload-file test.blend -D"FBT_USE_GZ_FILE=1" -s ALLOW_MEMORY_GROWTH=1 -s USE_ZLIB=1 --closure 1
+
 #define FBTBLEND_IMPLEMENTATION
 #include "../fbtBlend.h"
 
