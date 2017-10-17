@@ -105,9 +105,9 @@ for glut.h, glew.h, etc. with something like:
 #include "../Blender.h"
 
 
-const char* blendfilepath = "test.blend";   // This file will be loaded by default (unless specified otherwise in the commandline)
+const char* blendfilepath = //"test.blend";   // This file will be loaded by default (unless specified otherwise in the commandline)
 //"test_cube.blend";
-//"test_texture_rep.blend";
+"test_texture_rep.blend";
 
 //=========== STRUCTS WE'LL FILL =========================
 // Interface we''l implement later with stb_image.h
@@ -154,7 +154,7 @@ struct Material	{
         glMaterialfv(GL_FRONT, GL_AMBIENT, amb);
         glMaterialfv(GL_FRONT, GL_DIFFUSE, dif);
         glMaterialfv(GL_FRONT, GL_SPECULAR, spe);
-        glMaterialf(GL_FRONT, GL_SHININESS, (shi * 128.0f));
+        glMaterialf(GL_FRONT, GL_SHININESS, shi * 128.0f);
         glMaterialfv(GL_FRONT, GL_EMISSION, emi);
     }
     void lighten(float q)	{
@@ -283,9 +283,9 @@ static bool GetMaterialFromBlender(const Blender::Material* ma,Material& mOut) {
     // Or must we use: ma->gloss_mir;   //where is it?
 
     static const bool correctTooDimAmbientLight = true;    //terrible hack, but usually improves things. Feel free to disable it.
-    static const float dif2ambFactor = 0.6f;	// MUST BE <=1. If no ambient color is provided, obtain one by: amb = dif * dif2ambFactor;
-    static const float correctTooDimAmbientLightDimThreshold = 0.15f;  //must be bigger than every component to trigger correction
-    static const bool cutTooBigCorrectedAmbientLight = true;
+    static const float dif2ambFactor = 0.7f;//0.6f;	// MUST BE <=1. If no ambient color is provided, obtain one by: amb = dif * dif2ambFactor;
+    static const float correctTooDimAmbientLightDimThreshold = 0.15f*2;  //must be bigger than every component to trigger correction
+    static const bool cutTooBigCorrectedAmbientLight = false;//true;
 
     if (correctTooDimAmbientLight && mOut.amb[0]<=correctTooDimAmbientLightDimThreshold && mOut.amb[1]<=correctTooDimAmbientLightDimThreshold && mOut.amb[2]<=correctTooDimAmbientLightDimThreshold
     //&& mOut.emi[0]==0.f && mOut.emi[1]==0.f && mOut.emi[2]==0.f
@@ -516,6 +516,12 @@ inline Vec3 Vec3Cross(const Vec3& a,const Vec3& b) {
         a.x * b.y - a.y * b.x
     );
 }
+inline void Vec3Cross(float& xOut,float& yOut, float& zOut, float ax,float ay, float az,float bx, float by, float bz) {
+    xOut = ay * bz - az * by;
+    yOut = az * bx - ax * bz;
+    zOut = ax * by - ay * bx;
+}
+
 typedef std::vector<Vec3> Vector3Array;
 typedef std::vector<int> IndexArray;
 
@@ -590,6 +596,14 @@ struct MeshVerts {
 typedef IndexArray MeshPartInds;
 
 typedef std::vector < MeshPartInds > MeshPartIndsVector;
+
+struct TriFaceInfo {
+    char flags;                 // Plain Blender flags (tells us if the face is flat or smooth).
+    char belongsToLastPoly;     // (Optional) !=0 if this triangle is part of a previous quad or ngon.
+    inline TriFaceInfo() : flags(0),belongsToLastPoly(0) {}
+    inline TriFaceInfo(char _f,char _b=0) : flags(_f),belongsToLastPoly(_b) {}
+};
+typedef std::vector<TriFaceInfo> TriFaceInfoVector;
 
 inline static bool IsEqual(float a,float b) {static const float eps = 0.00001;return (a>b) ? a-b<eps : b-a<eps;}
 inline static bool IsEqual(const Vec2& a,const Vec2& b) {return IsEqual(a.x,b.x) && IsEqual(a.y,b.y);}
@@ -1107,6 +1121,14 @@ void InitGL(void) {
 #               undef EXTRACT_SCALING
 #               endif //EXTRACT_SCALING
 
+                /*// Optional: Orthogonalize mMatrix:
+                Vec3Cross(mMatrix[4],mMatrix[5],mMatrix[6], mMatrix[8],mMatrix[9],mMatrix[10],  mMatrix[0],mMatrix[1],mMatrix[2]);  // Y = Z cross X;
+                Vec3Cross(mMatrix[0],mMatrix[1],mMatrix[2], mMatrix[4],mMatrix[5],mMatrix[6],   mMatrix[8],mMatrix[9],mMatrix[10]); // X = Y cross Z;
+                //  X.Normalise();Y.Normalise();Z = X cross Y;Y = Z cross X;
+
+                //mMatrix[3]=mMatrix[7]=mMatrix[11]=0.f;mMatrix[15]=1.f;*/
+
+
                 // Ok, now we convert mMatrix to meshParts.mMatrix:
                 for (int i=0;i<16;i++) meshParts.mMatrix[i] = mMatrix[i];
                 // We must adjust meshParts.mMatrix so that: newY = oldZ; newZ = -oldY
@@ -1136,8 +1158,8 @@ void InitGL(void) {
 
             MeshPartIndsVector meshPartInds;
             meshPartInds.resize(numMaterials);
-            std::vector< std::vector<char> > meshPartTriFaceFlags;    // Needed for smooth face
-            meshPartTriFaceFlags.resize(numMaterials);
+            std::vector< TriFaceInfoVector > meshPartTriFaceInfo;    // Needed for smooth face
+            meshPartTriFaceInfo.resize(numMaterials);
 
             MeshVerts meshVerts;
             std::vector < Vec3 >& verts = meshVerts.verts;
@@ -1168,7 +1190,7 @@ void InitGL(void) {
 
 
             IndexArray* pinds = NULL;
-            std::vector<char>* pTriFaceFlags = NULL;
+            TriFaceInfoVector* pTriFaceFlags = NULL;
             const BlenderTexture* pBlenderTexture = NULL;
 
             Vec2 tc;int li0,li1,li2,li3,vi0,vi1,vi2,vi3;
@@ -1190,7 +1212,7 @@ void InitGL(void) {
                 if (mat_nr_ok)  {
                     pBlenderTexture =           &textureVector[mat_nr];
                     pinds =                     &meshPartInds[mat_nr];
-                    pTriFaceFlags =             &meshPartTriFaceFlags[mat_nr];
+                    pTriFaceFlags =             &meshPartTriFaceInfo[mat_nr];
                 }
 
                 for (int i=0;i<me->totface;i++) {
@@ -1205,7 +1227,7 @@ void InitGL(void) {
                         if (mat_nr_ok)  {
                             pBlenderTexture =           &textureVector[mat_nr];
                             pinds =                     &meshPartInds[mat_nr];
-                            pTriFaceFlags =             &meshPartTriFaceFlags[mat_nr];
+                            pTriFaceFlags =             &meshPartTriFaceInfo[mat_nr];
                         }
                     }
                     if (!pinds) continue;
@@ -1218,7 +1240,7 @@ void InitGL(void) {
                     pinds->push_back(mface.v1);
                     pinds->push_back(mface.v2);
                     pinds->push_back(mface.v3);
-                    pTriFaceFlags->push_back(mface.flag);
+                    pTriFaceFlags->push_back(TriFaceInfo(mface.flag));
 
                     if (mtf) {
                         hasTexCoords = true;
@@ -1243,7 +1265,7 @@ void InitGL(void) {
                         pinds->push_back(mface.v3);
                         pinds->push_back(mface.v4);
                         pinds->push_back(mface.v1);
-                        pTriFaceFlags->push_back(mface.flag);
+                        pTriFaceFlags->push_back(TriFaceInfo(mface.flag,1));
 
                         if (mtf) {
                             hasTexCoords = true;
@@ -1277,7 +1299,7 @@ void InitGL(void) {
                 if (mat_nr_ok)  {
                     pBlenderTexture =           &textureVector[mat_nr];
                     pinds =                     &meshPartInds[mat_nr];
-                    pTriFaceFlags =             &meshPartTriFaceFlags[mat_nr];
+                    pTriFaceFlags =             &meshPartTriFaceInfo[mat_nr];
                 }
 
                 for (int i=0;i<me->totpoly;i++) {
@@ -1291,7 +1313,7 @@ void InitGL(void) {
                         if (mat_nr_ok)  {
                             pBlenderTexture =           &textureVector[mat_nr];
                             pinds =                     &meshPartInds[mat_nr];
-                            pTriFaceFlags =             &meshPartTriFaceFlags[mat_nr];
+                            pTriFaceFlags =             &meshPartTriFaceInfo[mat_nr];
                         }
                     }
                     if (!pinds) continue;
@@ -1334,7 +1356,7 @@ void InitGL(void) {
                             pinds->push_back(vi0);
                             pinds->push_back(vi1);
                             pinds->push_back(vi2);
-                            pTriFaceFlags->push_back(poly.flag);
+                            pTriFaceFlags->push_back(TriFaceInfo(poly.flag));
 
 
                             if (mtp) {
@@ -1372,7 +1394,7 @@ void InitGL(void) {
                                 pinds->push_back(vi2);
                                 pinds->push_back(vi3);
                                 pinds->push_back(vi0);
-                                pTriFaceFlags->push_back(poly.flag);
+                                pTriFaceFlags->push_back(TriFaceInfo(poly.flag,1));
 
 
                                 if (mtp) {
@@ -1408,6 +1430,7 @@ void InitGL(void) {
                             int currentLastVertPos = faceSize-1;
                             int remainingFaceSize = faceSize;
                             bool isQuad = true;
+                            TriFaceInfo tfi(poly.flag);
                             do {
                                 isQuad = remainingFaceSize>=4;
 
@@ -1430,7 +1453,8 @@ void InitGL(void) {
                                 pinds->push_back(vi0);
                                 pinds->push_back(vi1);
                                 pinds->push_back(vi2);
-                                pTriFaceFlags->push_back(poly.flag);
+                                pTriFaceFlags->push_back(tfi);
+                                tfi.belongsToLastPoly = 1;
 
 
                                 if (mtp) {
@@ -1475,7 +1499,7 @@ void InitGL(void) {
                                     pinds->push_back(vi0);
                                     pinds->push_back(vi1);
                                     pinds->push_back(vi2);
-                                    pTriFaceFlags->push_back(poly.flag);
+                                    pTriFaceFlags->push_back(tfi);
 
 
                                     if (mtp) {
@@ -1651,7 +1675,7 @@ void InitGL(void) {
                 // INDS -----------------------------------------------
                 for (int i=0,sz = (int) meshPartInds.size();i<sz;i++)   {
                     IndexArray& inds = meshPartInds[i];
-                    std::vector<char>& triFaceFlags = meshPartTriFaceFlags[i];
+                    TriFaceInfoVector& triFaceFlags = meshPartTriFaceInfo[i];
                     //std::vector<int>& sginds = m.smoothingGroupsOfInds;
                     const int numSingleInds = inds.size();
                     //int startNumInds = 0;
@@ -1752,8 +1776,8 @@ void InitGL(void) {
                 if (!hasVerts) continue;
                 MeshPart& mp = meshParts[i];
                 const MeshPartInds& inds = meshPartInds[i];
-                const std::vector<char>& triFaceFlags = meshPartTriFaceFlags[i];
-                Vec3 flatNormal;
+                const TriFaceInfoVector& triFaceFlags = meshPartTriFaceInfo[i];
+                Vec3 flatNormal = GetVec3(0,1,0);
                 mp.displayListId = glGenLists(1);           // We should delete them somewhere...
 
                 const bool hasNormals = meshVerts.norms.size()==meshVerts.verts.size();
@@ -1761,10 +1785,12 @@ void InitGL(void) {
                 glBegin(GL_TRIANGLES);
                 for (int triIdx=0,numTris=(int)inds.size()/3;triIdx<numTris;triIdx++)   {
                     const int triIdx3 = 3*triIdx;
-                    const char triFaceFlag = triFaceFlags[triIdx];
-                    const bool hasFlatNormals = hasNormals && triFaceFlag!=3; // Not sure this is right! At all...
-                    if (hasFlatNormals)    {
+                    const char triFaceFlag = triFaceFlags[triIdx].flags;
+                    const bool hasFlatNormals = hasNormals && !(triFaceFlag&1); // Not sure this is right! At all...
+                    if (hasFlatNormals)    {                    
                         // Flat Normal
+#                       define USE_POLY_FLAT_NORMALS  // instead of single triangle flat normal (slower, small visible changes in my test files)
+#                       ifndef USE_POLY_FLAT_NORMALS
                         const Vec3& v0 = meshVerts.verts[inds[triIdx3]];
                         const Vec3& v1 = meshVerts.verts[inds[triIdx3+1]];
                         const Vec3& v2 = meshVerts.verts[inds[triIdx3+2]];
@@ -1773,6 +1799,31 @@ void InitGL(void) {
                         const Vec3 v01 = GetVec3(v0.v[0]-v1.v[0],v0.v[1]-v1.v[1],v0.v[2]-v1.v[2]);
                         flatNormal = Vec3Cross(v21,v01);
                         Vec3Normalize(flatNormal);
+#                       else // USE_POLY_FLAT_NORMALS
+                        const char belongsToLastPoly = triFaceFlags[triIdx].belongsToLastPoly;
+                        if (!belongsToLastPoly) {
+                            //int cnt = 0;
+                            flatNormal.v[0]=flatNormal.v[1]=flatNormal.v[2]=0.f;
+                            for (int trid=triIdx;trid<numTris && (trid==triIdx || triFaceFlags[trid].belongsToLastPoly);trid++)   {
+                                const int trid3 = 3*trid;
+                                const Vec3& v0 = meshVerts.verts[inds[trid3]];
+                                const Vec3& v1 = meshVerts.verts[inds[trid3+1]];
+                                const Vec3& v2 = meshVerts.verts[inds[trid3+2]];
+
+                                const Vec3 v21 = GetVec3(v2.v[0]-v1.v[0],v2.v[1]-v1.v[1],v2.v[2]-v1.v[2]);
+                                const Vec3 v01 = GetVec3(v0.v[0]-v1.v[0],v0.v[1]-v1.v[1],v0.v[2]-v1.v[2]);
+                                Vec3 triNormal = Vec3Cross(v21,v01);
+                                //Vec3Normalize(triNormal); // The modulo is the area AFAIR, so if we don't normalize,
+                                // we got a weighted sum, which is better
+                                flatNormal.v[0]+=triNormal.v[0];
+                                flatNormal.v[1]+=triNormal.v[1];
+                                flatNormal.v[2]+=triNormal.v[2];
+                                //++cnt;
+                            }
+                            Vec3Normalize(flatNormal);
+                        }
+                        // else reuse flatNormal as it is
+#                       endif //USE_POLY_FLAT_NORMALS
                     }
                     for (int j=triIdx3,jsz=triIdx3+3;j<jsz;j++)    {
                         const int idx = inds[j];
@@ -1813,7 +1864,7 @@ void InitGL(void) {
     glClearColor(0.3f, 0.6f, 1.0f, 1.0f);
 
     // Lighting
-    const float globalAmbient[4] = {0.4f,0.4f,0.4f,1.f};
+    const float globalAmbient[4] = {0.45f,0.45f,0.45f,1.f};
     glLightModelfv(GL_LIGHT_MODEL_AMBIENT,globalAmbient);
 
     glEnable(GL_LIGHTING);
@@ -1821,7 +1872,7 @@ void InitGL(void) {
     Vec3Normalize(lightDirection);
     const float lightPos[4] = {lightDirection[0],lightDirection[1],lightDirection[2],0};
     glLightfv(GL_LIGHT0,GL_POSITION,lightPos);
-    const float lightAmb[4] = {0.4f,0.4f,0.4f,1};
+    const float lightAmb[4] = {0.45f,0.45f,0.45f,1};
     glLightfv(GL_LIGHT0,GL_AMBIENT,lightAmb);
     const float lightDif[4] = {0.8f,0.8f,0.8f,1};
     glLightfv(GL_LIGHT0,GL_DIFFUSE,lightDif);
