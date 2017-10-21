@@ -75,7 +75,7 @@ int main(int argc, const char* argv[]) {
 
                         printf("ArmatureModifier: deformflag:%d multi:%d\n",md->deformflag,md->multi);
                         if (md->object) printf("Armature Object: %s\n",md->object->id.name);
-                        if (md->defgrp_name) printf("Deform Group Name: %s\n",md->defgrp_name);
+                        printf("Deform Group Name: %s\n",md->defgrp_name);
 
                     }
                     //else fprintf(stderr,"Detected unknown modifier: %d for object: %s\n",mdf->type,ob->id.name);

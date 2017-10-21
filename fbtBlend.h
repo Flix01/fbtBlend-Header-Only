@@ -1543,7 +1543,7 @@ public:
 		if (m_hash != FBT_NPOS)
 			return m_hash;
 
-		if (m_size == 0 || !m_buffer)
+		if (m_size == 0/* || !m_buffer*/)	// Warning: address of array 'this->m_buffer' will always evaluate to 'true'
 			return FBT_NPOS;
 		fbtCharHashKey chk(m_buffer);
 		m_hash = chk.hash();
