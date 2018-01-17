@@ -33,7 +33,10 @@ int main(int argc, const char* argv[]) {
     const char* filePath = argc>1 ? argv[1] : "test.blend";
     if (fp.parse(filePath)!=fbtFile::FS_OK)   return 1;
 
-    fbtList& objects = fp.m_object;long cnt=-1;
+    // Object List (probably the only relevant in most cases)
+    long cnt=-1;
+    fbtList& objects = fp.m_object;
+    if (objects.first) printf("____________\nOBJECT LIST:\n____________\n");
     for (Blender::Object* ob = (Blender::Object*)objects.first; ob; ob = (Blender::Object*)ob->id.next)	{
         if (!ob) break;
         ++cnt;
@@ -85,5 +88,61 @@ int main(int argc, const char* argv[]) {
         }
         //---------------------
     }
+
+    // However we can directly list other structs (most of them are better accessed through the Object List I suppose)
+    /* From the declaration of struct fbtBlend:
+    fbtList m_scene;
+    fbtList m_library;
+    fbtList m_object;
+    fbtList m_mesh;
+    fbtList m_curve;
+    fbtList m_mball;
+    fbtList m_mat;
+    fbtList m_tex;
+    fbtList m_image;
+    fbtList m_latt;
+    fbtList m_lamp;
+    fbtList m_camera;
+    fbtList m_ipo;
+    fbtList m_key;
+    fbtList m_world;
+    fbtList m_screen;
+    fbtList m_script;
+    fbtList m_vfont;
+    fbtList m_text;
+    fbtList m_sound;
+    fbtList m_group;
+    fbtList m_armature;
+    fbtList m_action;
+    fbtList m_nodetree;
+    fbtList m_brush;
+    fbtList m_particle;
+    fbtList m_wm;
+    fbtList m_gpencil;*/
+
+    // As an example: Image List
+    cnt=-1;
+    fbtList& images = fp.m_image;
+    if (images.first) printf("\n___________\nIMAGE LIST:\n___________\n");
+    for (Blender::Image* im = (Blender::Image*)images.first; im; im = (Blender::Image*)im->id.next)	{
+        if (!im) break;
+        ++cnt;
+        printf("%ld)\tIMAGE: \"%s\"\ttype=%d\tpath=\"%s\"\tpacked:%s\n",cnt,im->id.name,im->type,im->name,im->packedfile && im->packedfile->size>0 ? "true" : "false");   // There's actually a ListBase im->packedfiles too (?)
+        //if (im->preview) printf("\tPreview Image: Size[0](%d,%d) Size[1](%d,%d)\n",im->preview->w[0],im->preview->h[0],im->preview->w[1],im->preview->h[1]);   // No idea on what this is... (for sure it's not the image size).
+    }
+
+    // As an example: Scene List
+    cnt=-1;
+    fbtList& scenes = fp.m_scene;
+    if (scenes.first) printf("\n___________\nSCENE LIST:\n___________\n");
+    for (Blender::Scene* sc = (Blender::Scene*)scenes.first; sc; sc = (Blender::Scene*)sc->id.next)	{
+        if (!sc) break;
+        ++cnt;
+        printf("%ld)\tSCENE: \"%s\"\n",cnt,sc->id.name);
+        if (sc->preview)  printf("\tPreview Image: Size[0](%d,%d) Size[1](%d,%d)\n",sc->preview->w[0],sc->preview->h[0],sc->preview->w[1],sc->preview->h[1]);
+        if (sc->world) printf("\tWorld: \"%s\"\n",sc->world->id.name);
+        if (sc->camera) printf("\tCamera: \"%s\"\n",sc->camera->id.name);
+    }
+
     return 0;
 }

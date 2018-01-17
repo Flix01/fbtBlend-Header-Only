@@ -105,9 +105,9 @@ for glut.h, glew.h, etc. with something like:
 #include "../Blender.h"
 
 
-const char* blendfilepath = //"test.blend";   // This file will be loaded by default (unless specified otherwise in the commandline)
+const char* blendfilepath = "test.blend";   // This file will be loaded by default (unless specified otherwise in the commandline)
 //"test_cube.blend";
-"test_texture_rep.blend";
+//"test_texture_rep.blend";
 
 //=========== STRUCTS WE'LL FILL =========================
 // Interface we''l implement later with stb_image.h
@@ -375,46 +375,60 @@ static GLuint GetTextureFromBlender(const Blender::Image* im,const std::string& 
 
     return texId;
 }
-static bool GetTextureFromBlender(Blender::MTex* const* mtexture,BlenderTexture& btexOut,const std::string& blendModelParentFolder="",std::map<uintptr_t,GLuint>* pPackedFileMap=NULL,std::map<std::string,GLuint>* pExternFileMap=NULL,BlenderTexture::Mapping mapping = BlenderTexture::MAP_COLOR,std::string* pOptionalTextureFilePathOut=NULL) {
+static bool GetTextureFromBlender(const Blender::Material* parentMaterial,BlenderTexture& btexOut,const std::string& blendModelParentFolder="",std::map<uintptr_t,GLuint>* pPackedFileMap=NULL,std::map<std::string,GLuint>* pExternFileMap=NULL,BlenderTexture::Mapping mapping = BlenderTexture::MAP_COLOR,std::string* pOptionalTextureFilePathOut=NULL) {
     if (pOptionalTextureFilePathOut) *pOptionalTextureFilePathOut = "";
     btexOut.reset();
-    if (!mtexture) return false;
+    if (!parentMaterial || !parentMaterial->mtex) return false;
 
-    int i = -1;
+    Blender::MTex* const* mtexture = parentMaterial->mtex;
+
+    const bool useLastValidTexture = true;  // Otherwise the first valid texture will be used (we don't blend multiple valid textures together
+    int validTextureIndex = -1,i=-1;
     while (mtexture[++i] != 0)	{
         const Blender::MTex* mtex = mtexture[i];
-        if (mtex)	{
+        if ((parentMaterial->septex&(i+1))) continue;   // This texture slot is unchecked
+        // Here we match the texture mapping arg (e.g. BlenderTexture::MAP_COLOR), and the texture type (image texture):
+        if (!mtex || (mtex->mapto&((short) mapping))==0 || !mtex->tex || mtex->tex->type!=8 || !mtex->tex->ima) continue;    // tex->type!=8 -> image texture
 
-            if ((mtex->mapto&((short) mapping))==0) {
-                //printf("mtex->mapto(%d)&((short) mapping)=%d)==0\n",mtex->mapto,(int)mapping);
-                continue;
-            }
-            const Blender::Tex* tex = mtex->tex;
-            if (tex)	{
-                if (tex->type!=8) { // image texture
-                    //printf("tex->type(%d)!=8\n",tex->type);
-                    continue;
-                }
-                const Blender::Image* im = tex->ima;
-                if (!im) continue;
-                btexOut.id = GetTextureFromBlender(im,blendModelParentFolder,pPackedFileMap,pExternFileMap,pOptionalTextureFilePathOut);
-                if (btexOut.id==0) continue;
+        /*printf("mtexture[%d]=\"%s\""
+               "\ttexco=%d, mapto=%d, maptoneg=%d, blendtype=%d,"
+               "\tprojx=%d, projy=%d, projz=%d, mapping=%d,"
+               "\tnormapspace=%d, which_output=%d, brush_map_mode=%d"
+               "\tpad[0]=%d,pad[1]=%d,pad[2]=%d,pad[3]=%d,pad[4]=%d,pad[5]=%d,pad[6]=%d,"
+               "\n",i,mtex->uvname ? mtex->uvname : "NULL",
+               mtex->texco, mtex->mapto, mtex->maptoneg, mtex->blendtype,
+               mtex->projx, mtex->projy, mtex->projz, mtex->mapping,
+               mtex->normapspace, mtex->which_output,mtex->brush_map_mode,
+               mtex->pad[0],mtex->pad[1],mtex->pad[2],mtex->pad[3],mtex->pad[4],mtex->pad[5],mtex->pad[6]
+        );*/
 
-                btexOut.repX = (float) tex->xrepeat*mtex->size[0];
-                btexOut.repY = (float) tex->yrepeat*mtex->size[1];
-                btexOut.offX = mtex->ofs[0];
-                btexOut.offY = mtex->ofs[1];
-                btexOut.mapping = (BlenderTexture::Mapping)mtex->mapto;
-                btexOut.blendtype = (BlenderTexture::BlendType)mtex->blendtype;
-                btexOut.difffac = mtex->difffac;
-                btexOut.norfac = mtex->norfac;
-                btexOut.specfac = mtex->specfac;
-                btexOut.alphafac = mtex->alphafac;
-                btexOut.dispfac = mtex->dispfac;
-                //printf("Added \"%s\" texture [rep(%1.1f,%1.1f) off(%1.1f,%1.1f)] to material \"%s\"\n",im->id.name,myTex.repX,myTex.repY,myTex.offX,myTex.offY,ma->id.name);
+        validTextureIndex = i;if (!useLastValidTexture) break;
+    }
 
-                // Other things that can turn useful
-                /*
+    if (validTextureIndex>=0)	{
+        // We already know that the following three fields are valid:
+        const Blender::MTex* mtex = mtexture[validTextureIndex];
+        const Blender::Tex* tex = mtex->tex;
+        const Blender::Image* im = tex->ima;
+
+        btexOut.id = GetTextureFromBlender(im,blendModelParentFolder,pPackedFileMap,pExternFileMap,pOptionalTextureFilePathOut);
+        if (btexOut.id!=0) {
+
+        btexOut.repX = (float) tex->xrepeat*mtex->size[0];
+        btexOut.repY = (float) tex->yrepeat*mtex->size[1];
+        btexOut.offX = mtex->ofs[0];
+        btexOut.offY = mtex->ofs[1];
+        btexOut.mapping = (BlenderTexture::Mapping)mtex->mapto;
+        btexOut.blendtype = (BlenderTexture::BlendType)mtex->blendtype;
+        btexOut.difffac = mtex->difffac;
+        btexOut.norfac = mtex->norfac;
+        btexOut.specfac = mtex->specfac;
+        btexOut.alphafac = mtex->alphafac;
+        btexOut.dispfac = mtex->dispfac;
+        //printf("Added \"%s\" texture [rep(%1.1f,%1.1f) off(%1.1f,%1.1f)] to material \"%s\"\n",im->id.name,myTex.repX,myTex.repY,myTex.offX,myTex.offY,ma->id.name);
+
+        // Other things that can turn useful
+        /*
                 bool mirrorX = (tex->flag&128);	// If this is used: tex->xrepeat/=2 must be done too.
                 bool mirrorY = (tex->flag&256); // If this is used: tex->yrepeat/=2 must be done too.
                 bool useMipmaps = (tex->imaflag&4);
@@ -432,9 +446,6 @@ static bool GetTextureFromBlender(Blender::MTex* const* mtexture,BlenderTexture&
 #undef DEBUG_ME
 #endif //DEBUG_ME
                 */
-
-                break;
-            }
         }
     }
 
@@ -1058,10 +1069,27 @@ void InitGL(void) {
                 for (int i = 0; i < ob->totcol; ++i)	{
                     const Blender::Material* ma =  mat[i];
                     if (!ma) continue;
+
                     //printf("Mat[%d]=\"%s\"\n",i,ma->id.name);
+                    /*printf("Mat[%d]=\"%s\""
+                           "\ttot_slots=%d mapto_textured=%d material_type=%d flag=%d use_nodes=%d,"
+                           "\tmode=%d,mode_l=%d,mode2=%d,mode2_l=%d,"
+                           "\tpr_lamp=%d,pr_texture=%d,ml_flag=%d,mapflag=%d,"
+                           "\ttexco=%d,mapto=%d,septex=%d\n",i,ma->id.name,
+                    ma->tot_slots,ma->mapto_textured,ma->material_type,ma->flag,ma->use_nodes,
+                    ma->mode,ma->mode_l,ma->mode2,ma->mode2_l,
+                    ma->pr_lamp, ma->pr_texture, ma->ml_flag, ma->mapflag,
+                    ma->texco, ma->mapto, ma->septex
+                    );*/
+
+                    // What I'd like to find out is how to detect if a texture slot in a material is unchecked or not.
+                    // Using the Python API is easier: material.use_textures[ slotid ]
+                    // FOUND AFTER A COUPLE OF HOURS...
+                    // ma->septex is the ORed flag of the (1-based) texture slots TO EXCLUDE (not to use)
+
                     GetMaterialFromBlender(ma,materialVector[i]);
-                    materialNameVector[i] = std::string(ma->id.name);
-                    GetTextureFromBlender(ma->mtex,textureVector[i],parentFolderPath,&packedFileMap,&externFileMap,BlenderTexture::MAP_COLOR,&textureFilePathVector[i]);
+                    materialNameVector[i] = std::string(ma->id.name);                    
+                    GetTextureFromBlender(ma,textureVector[i],parentFolderPath,&packedFileMap,&externFileMap,BlenderTexture::MAP_COLOR,&textureFilePathVector[i]);
                 }
             }
             //-------------------------------------------------------

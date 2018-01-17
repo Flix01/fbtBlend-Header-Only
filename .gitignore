@@ -64,6 +64,7 @@ tests/glut32.dll
 tests/html/
 tests/*.png
 tests/*.jpg
+!tests/test.blend
 docs/
 reps/
 tests/reps/
@@ -83,8 +84,13 @@ glImmediateMode.h
 obj.h
 Sdf/
 fbtBlendUpdater/fbtBlendUpdater
+fbtBlendUpdater/test.blend
+fbtBlendUpdater/Blender.h
+fbtBlendUpdater/bftBlend.h
 tests/testConsole
 tests/testGlut
+280/
+
 
 
 
