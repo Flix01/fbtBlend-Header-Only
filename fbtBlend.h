@@ -40,8 +40,7 @@
        int parse(const char* path,const char* uncompressedFileDetectorPrefix="BLENDER");
        int parse(const char* path, int mode);
        // This allows auto-detection of the .blend file compression, by just using: parse(const char* path);
-
-     TODO: Override fopen to allow UTF8 on Windows.
+     -> Added protected fbtFile::UTF8_fopen(...) to allow UTF8 char paths on Windows.
 */
 #ifndef _fbtBlend_h_
 #define _fbtBlend_h_
@@ -1767,6 +1766,10 @@ protected:
 
     static bool FileStartsWith(const char* path,const char* cmp);    // Used to detect if a .blend file is not compressed
 
+    static FILE* UTF8_fopen(const char* filename, const char* mode);    // Used to allow UTF8 chars on Windows
+
+    friend class fbtFileStream; // Just to make fbtFileStream use UTF8_fopen
+
 private:
 
 
@@ -2333,7 +2336,7 @@ bool fbtFile::FileStartsWith(const char* path,const char* cmp) {
     const size_t numCharsToMatch = strlen(cmp);
     if (numCharsToMatch>255) return false;
     bool match = false;
-    FILE* f = fopen(path,"rb");
+    FILE* f = UTF8_fopen(path,"rb");
     if (f) {
         if (fseek(f, 0, SEEK_END))  {fclose(f);return match;}
         const long f_size = ftell(f);
@@ -2345,6 +2348,31 @@ bool fbtFile::FileStartsWith(const char* path,const char* cmp) {
         fclose(f);
     }
     return match;
+}
+
+FILE* fbtFile::UTF8_fopen(const char* filename, const char* mode)   {
+    if (!filename || !mode) return NULL;
+#	ifdef _WIN32
+    const int filenameLen = strlen(filename);
+    const int modeLen = strlen(mode);
+    wchar_t wfilename[MAX_PATH+1]=L"";
+    wchar_t wmode[MAX_PATH+1]=L"";
+    FILE* f = NULL;
+    int wfilenameLen = 0, wmodeLen = 0;
+
+    if (filenameLen == 0 || modeLen == 0) return NULL;
+    wfilenameLen    = MultiByteToWideChar(CP_UTF8, 0, filename, filenameLen,    wfilename,  MAX_PATH);
+    wmodeLen        = MultiByteToWideChar(CP_UTF8, 0, mode,     modeLen,        wmode,      MAX_PATH);
+    if (wfilenameLen <= MAX_PATH && wmodeLen <= MAX_PATH) {
+        wfilename[wfilenameLen] = L'\0';
+        wmode[wmodeLen]         = L'\0';
+        f = _wfopen(wfilename, wmode);
+    }
+    else f = fopen(filename, mode); // fallback
+    return f;
+#	else
+    return fopen(filename, mode);
+#	endif
 }
 
 int fbtFile::parse(const char* path,const char* uncompressedFileDetectorPrefix)    {
@@ -3349,7 +3377,7 @@ void fbtFileStream::open(const char* p, fbtStream::StreamMode mode)
 	fm[2] = 0;
 
 	m_file = p;
-	m_handle = fopen(m_file.c_str(), fm);
+    m_handle = fbtFile::UTF8_fopen(m_file.c_str(), fm);
 
 	if (m_handle && (mode & fbtStream::SM_READ))
 	{
