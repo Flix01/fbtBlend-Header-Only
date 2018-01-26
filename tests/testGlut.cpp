@@ -696,13 +696,53 @@ GLuint OpenGLGenerateTexture(int width,int height,int channels,const unsigned ch
     return texid;
 }
 void OpenGLFlipTexturesVerticallyOnLoad(bool flag_true_if_should_flip)	{stbi_set_flip_vertically_on_load(flag_true_if_should_flip);}
+static bool GetFileContent(const char *filePath, std::vector<char> &contentOut, bool clearContentOutBeforeUsage, const char *modes, bool appendTrailingZeroIfModesIsNotBinary)   {
+    std::vector<char>& f_data = contentOut;
+    if (clearContentOutBeforeUsage) f_data.clear();
+//----------------------------------------------------
+    if (!filePath) return false;
+    const bool appendTrailingZero = appendTrailingZeroIfModesIsNotBinary && modes && strlen(modes)>0 && modes[strlen(modes)-1]!='b';
+    FILE* f;
+    if ((f = fbtFile::UTF8_fopen(filePath, modes)) == NULL) return false;
+    if (fseek(f, 0, SEEK_END))  {
+        fclose(f);
+        return false;
+    }
+    const long f_size_signed = ftell(f);
+    if (f_size_signed == -1)    {
+        fclose(f);
+        return false;
+    }
+    size_t f_size = (size_t)f_size_signed;
+    if (fseek(f, 0, SEEK_SET))  {
+        fclose(f);
+        return false;
+    }
+    f_data.resize(f_size+(appendTrailingZero?1:0));
+    const size_t f_size_read = f_size>0 ? fread(&f_data[0], 1, f_size, f) : 0;
+    fclose(f);
+    if (f_size_read == 0 || f_size_read!=f_size)    return false;
+    if (appendTrailingZero) f_data[f_size] = '\0';
+//----------------------------------------------------
+    return true;
+}
 GLuint OpenGLLoadTexture(const char* filename,int req_comp,bool useMipmapsIfPossible,bool wraps,bool wrapt)	{
     int w,h,n;
-    unsigned char* pixels = stbi_load(filename,&w,&h,&n,req_comp);
+    unsigned char* pixels = NULL;
+    //pixels = stbi_load(filename,&w,&h,&n,req_comp);    // works, but on Windows filename can't be UTF8 as far as I know
+    // workaround
+    {
+        std::vector<char> buffer;
+        if (GetFileContent(filename,buffer,true,"rb",true) && buffer.size()>0)
+           pixels = stbi_load_from_memory((const unsigned char*)&buffer[0],buffer.size(),&w,&h,&n,req_comp);
+    }
+    // end workaround
     if (!pixels) {
         fprintf(stderr,"Error: can't load texture: \"%s\".\n",filename);
         return 0;
     }
+    //else fprintf(stderr,"Texture \"%s\" correctly loaded.\n",filename);
+
     if (req_comp>0 && req_comp<=4) n = req_comp;
 
     GLuint texId = 0;
@@ -760,7 +800,7 @@ void Config_Init(Config* c) {
 }
 #ifndef __EMSCRIPTEN__
 int Config_Load(Config* c,const char* filePath)  {
-    FILE* f = fopen(filePath, "rt");
+    FILE* f = fbtFile::UTF8_fopen(filePath, "rt");  // same as fopen(...), but on Windows now filePath can be UTF8 (if this file is encoded as UTF8).
     char ch='\0';char buf[256]="";
     size_t nread=0;
     int numParsedItem=0;
@@ -801,7 +841,7 @@ int Config_Load(Config* c,const char* filePath)  {
     return 0;
 }
 int Config_Save(Config* c,const char* filePath)  {
-    FILE* f = fopen(filePath, "wt");
+    FILE* f = fbtFile::UTF8_fopen(filePath, "wt");
     if (!f)  return -1;
     fprintf(f, "[Size In Fullscreen Mode (zero means desktop size)]\n%d %d\n",c->fullscreen_width,c->fullscreen_height);
     fprintf(f, "[Size In Windowed Mode]\n%d %d\n",c->windowed_width,c->windowed_height);

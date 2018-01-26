@@ -40,7 +40,7 @@
        int parse(const char* path,const char* uncompressedFileDetectorPrefix="BLENDER");
        int parse(const char* path, int mode);
        // This allows auto-detection of the .blend file compression, by just using: parse(const char* path);
-     -> Added protected fbtFile::UTF8_fopen(...) to allow UTF8 char paths on Windows.
+     -> Added a public static helper method fbtFile::UTF8_fopen(...) (used internally to to allow UTF8 char paths on Windows).
 */
 #ifndef _fbtBlend_h_
 #define _fbtBlend_h_
@@ -1729,6 +1729,10 @@ public:
 
 	bool _setuid(const char* uid);
 
+    // General Programming Staic Helper Methods:
+    static FILE* UTF8_fopen(const char* filename, const char* mode);    // Used to allow UTF8 chars on Windows
+
+
 protected:
 
 	int parseMagic(const char* cp);
@@ -1765,10 +1769,6 @@ protected:
 	MemoryChunk* findBlock(const FBTsize& iptr);
 
     static bool FileStartsWith(const char* path,const char* cmp);    // Used to detect if a .blend file is not compressed
-
-    static FILE* UTF8_fopen(const char* filename, const char* mode);    // Used to allow UTF8 chars on Windows
-
-    friend class fbtFileStream; // Just to make fbtFileStream use UTF8_fopen
 
 private:
 
