@@ -117,9 +117,9 @@ extern GLuint OpenGLLoadTextureFromMemory(const unsigned char* filenameInMemory,
 // End Interface
 
 #include <string>
-#include <vector>
+//#include <vector>
 #include <map>
-#include <algorithm>
+//#include <algorithm>
 struct Material	{
     float amb[4];
     float dif[4];
@@ -515,7 +515,7 @@ struct BlenderModifierMirror {
 // and we create a display list for every mesh part (split by Material)
 union Vec2 {struct {float x, y;};float v[2];};
 inline Vec2 GetVec2(float _x,float _y) {Vec2 v;v.x=_x;v.y=_y;return v;}
-typedef std::vector<Vec2> Vector2Array;
+typedef fbtArray<Vec2> Vector2Array;
 union Vec3 {struct {float x, y, z;};float v[3];};
 inline Vec3 GetVec3(float _x,float _y,float _z) {Vec3 v;v.x=_x;v.y=_y;v.z=_z;return v;}
 inline void Vec3Normalize(Vec3& v) {float len=v.x*v.x+v.y*v.y+v.z*v.z;if (len>0.0001f) {len=sqrt(len);v.x/=len;v.y/=len;v.z/=len;} else {v.x=v.z=0;v.y=1;}}
@@ -533,8 +533,8 @@ inline void Vec3Cross(float& xOut,float& yOut, float& zOut, float ax,float ay, f
     zOut = ax * by - ay * bx;
 }
 
-typedef std::vector<Vec3> Vector3Array;
-typedef std::vector<int> IndexArray;
+typedef fbtArray<Vec3> Vector3Array;
+typedef fbtArray<int> IndexArray;
 
 struct MeshPart {
     // It's a just part of a mesh split by material
@@ -545,7 +545,7 @@ struct MeshPart {
     MeshPart() : textureId(0),displayListId(0),visible(true) {}
     MeshPart(const Material& m,GLuint tId=0,GLuint dId=0) : material(m),textureId(tId),displayListId(dId),visible(true) {}
 
-    static void Draw(const std::vector < MeshPart >& parts) {
+    static void Draw(const fbtArray < MeshPart >& parts) {
         GLuint boundTexId = 0;
         for (size_t i = 0,isz=parts.size();i<isz;i++) {
             const MeshPart& m = parts[i];
@@ -561,8 +561,8 @@ struct MeshPart {
         glBindTexture(GL_TEXTURE_2D,0);
     }
 };
-struct MeshPartVector : public std::vector < MeshPart > {
-    typedef std::vector < MeshPart > Base;
+struct MeshPartVector : public fbtArray < MeshPart > {
+    typedef fbtArray < MeshPart > Base;
 public:
     float mMatrix[16];
     float mScaling[3];
@@ -576,7 +576,7 @@ public:
         visible = true;
     }
 };
-typedef std::vector < MeshPartVector > MeshPartVectorContainer;
+typedef fbtArray < MeshPartVector > MeshPartVectorContainer;
 /*struct MeshPartVectorContainer : public std::vector < MeshPartVector > {
     typedef std::vector < MeshPartVector > Base;
     public:
@@ -606,7 +606,7 @@ struct MeshVerts {
 };
 typedef IndexArray MeshPartInds;
 
-typedef std::vector < MeshPartInds > MeshPartIndsVector;
+typedef fbtArray < MeshPartInds > MeshPartIndsVector;
 
 struct TriFaceInfo {
     char flags;                 // Plain Blender flags (tells us if the face is flat or smooth).
@@ -614,12 +614,12 @@ struct TriFaceInfo {
     inline TriFaceInfo() : flags(0),belongsToLastPoly(0) {}
     inline TriFaceInfo(char _f,char _b=0) : flags(_f),belongsToLastPoly(_b) {}
 };
-typedef std::vector<TriFaceInfo> TriFaceInfoVector;
+typedef fbtArray<TriFaceInfo> TriFaceInfoVector;
 
 inline static bool IsEqual(float a,float b) {static const float eps = 0.00001;return (a>b) ? a-b<eps : b-a<eps;}
 inline static bool IsEqual(const Vec2& a,const Vec2& b) {return IsEqual(a.x,b.x) && IsEqual(a.y,b.y);}
-inline static int AddTexCoord(int id,const Vec2& tc,MeshVerts& mesh,std::vector<int>& numTexCoordAssignments,std::multimap<int,int>& texCoordsSingleVertsVertsMultiMap) {
-    std::vector < Vec2 >& texCoords = mesh.texcoords;
+inline static int AddTexCoord(int id,const Vec2& tc,MeshVerts& mesh,fbtArray<int>& numTexCoordAssignments,std::multimap<int,int>& texCoordsSingleVertsVertsMultiMap) {
+    fbtArray < Vec2 >& texCoords = mesh.texcoords;
 
     if (numTexCoordAssignments[id]==0) {
         ++(numTexCoordAssignments[id]);
@@ -696,8 +696,8 @@ GLuint OpenGLGenerateTexture(int width,int height,int channels,const unsigned ch
     return texid;
 }
 void OpenGLFlipTexturesVerticallyOnLoad(bool flag_true_if_should_flip)	{stbi_set_flip_vertically_on_load(flag_true_if_should_flip);}
-static bool GetFileContent(const char *filePath, std::vector<char> &contentOut, bool clearContentOutBeforeUsage, const char *modes, bool appendTrailingZeroIfModesIsNotBinary)   {
-    std::vector<char>& f_data = contentOut;
+static bool GetFileContent(const char *filePath, fbtArray<char> &contentOut, bool clearContentOutBeforeUsage, const char *modes, bool appendTrailingZeroIfModesIsNotBinary)   {
+    fbtArray<char>& f_data = contentOut;
     if (clearContentOutBeforeUsage) f_data.clear();
 //----------------------------------------------------
     if (!filePath) return false;
@@ -732,7 +732,7 @@ GLuint OpenGLLoadTexture(const char* filename,int req_comp,bool useMipmapsIfPoss
     //pixels = stbi_load(filename,&w,&h,&n,req_comp);    // works, but on Windows filename can't be UTF8 as far as I know
     // workaround
     {
-        std::vector<char> buffer;
+        fbtArray<char> buffer;
         if (GetFileContent(filename,buffer,true,"rb",true) && buffer.size()>0)
            pixels = stbi_load_from_memory((const unsigned char*)&buffer[0],buffer.size(),&w,&h,&n,req_comp);
     }
@@ -1101,10 +1101,10 @@ void InitGL(void) {
             Blender::Material	**mat = areMaterialsOverridden ? ob->mat : me->mat;
             const short totcol = areMaterialsOverridden ? ob->totcol : me->totcol;  // However we assume ob->totcol==me->totcol (don't know what we should do otherwise)
             const int numMaterials = totcol > 0 ? totcol : 1;
-            std::vector< ::Material > materialVector(numMaterials);
-            std::vector< BlenderTexture > textureVector(numMaterials);
-            std::vector< std::string > materialNameVector(numMaterials);
-            std::vector< std::string > textureFilePathVector(numMaterials);
+            fbtArray< ::Material > materialVector(numMaterials);
+            fbtArray< BlenderTexture > textureVector(numMaterials);
+            fbtArray< std::string > materialNameVector(numMaterials);
+            fbtArray< std::string > textureFilePathVector(numMaterials);
             if (mat && *mat)	{
                 for (int i = 0; i < ob->totcol; ++i)	{
                     const Blender::Material* ma =  mat[i];
@@ -1226,13 +1226,13 @@ void InitGL(void) {
 
             MeshPartIndsVector meshPartInds;
             meshPartInds.resize(numMaterials);
-            std::vector< TriFaceInfoVector > meshPartTriFaceInfo;    // Needed for smooth face
+            fbtArray< TriFaceInfoVector > meshPartTriFaceInfo;    // Needed for smooth face
             meshPartTriFaceInfo.resize(numMaterials);
 
             MeshVerts meshVerts;
-            std::vector < Vec3 >& verts = meshVerts.verts;
-            std::vector < Vec3 >& norms = meshVerts.norms;
-            std::vector < Vec2 >& texCoords = meshVerts.texcoords;
+            fbtArray < Vec3 >& verts = meshVerts.verts;
+            fbtArray < Vec3 >& norms = meshVerts.norms;
+            fbtArray < Vec2 >& texCoords = meshVerts.texcoords;
             bool hasTexCoords = false;
 
             // VERTS AND NORMS--(NOT MIRRORED)--------------------------
@@ -1264,7 +1264,7 @@ void InitGL(void) {
             Vec2 tc;int li0,li1,li2,li3,vi0,vi1,vi2,vi3;
 
             // INDS AND TEXCOORDS--(NOT MIRRORED)..........................
-            std::vector<int> numTexCoordAssignments(numSingleVerts,0);
+            fbtArray<int> numTexCoordAssignments(numSingleVerts,0);
             std::multimap<int,int> texCoordsSingleVertsVertsMultiMap;
             if (hasFaces)
             {
@@ -1621,8 +1621,8 @@ void InitGL(void) {
                 texCoords.reserve(numVerts);
             }
             else {
-                std::vector < Vec2 > empty;
-                texCoords.swap(empty);
+                fbtArray < Vec2 > empty;texCoords.swap(empty);
+                //texCoords.clear();
             }
             //------------------------------------------------------------
 
@@ -1956,15 +1956,15 @@ void InitGL(void) {
 void DestroyGL() {
     // We simply clear meshPartsContainer: but it's not that easy:
     // we must collect displayLists and textureIds
-    std::vector<GLuint> textures,displayLists;
-    std::vector<GLuint>::iterator it;
+    fbtArray<GLuint> textures,displayLists;
+    fbtArray<GLuint>::iterator it;
     for (int i=0,iSz=(int)meshPartsContainer.size();i<iSz;i++)    {
         MeshPartVector& meshParts = meshPartsContainer[i];
         for (int j=0;j<(int)meshParts.size();j++) {
             MeshPart& meshPart = meshParts[j];
-            if (meshPart.textureId && (it=std::find(textures.begin(),textures.end(),meshPart.textureId))==textures.end())
+            if (meshPart.textureId && (it=fbtArray<GLuint>::Find(textures.begin(),textures.end(),meshPart.textureId))==textures.end())
                 textures.push_back(meshPart.textureId);
-            if (meshPart.displayListId && (it=std::find(displayLists.begin(),displayLists.end(),meshPart.displayListId))==displayLists.end())
+            if (meshPart.displayListId && (it=fbtArray<GLuint>::Find(displayLists.begin(),displayLists.end(),meshPart.displayListId))==displayLists.end())
                 displayLists.push_back(meshPart.displayListId);
         }
         meshParts.clear();

@@ -456,15 +456,32 @@ public:
 	fbtArrayIterator() : m_iterator(0), m_cur(0), m_capacity(0) {}
 	fbtArrayIterator(Iterator begin, FBTsizeType size) : m_iterator(begin), m_cur(0), m_capacity(size) {}
 	fbtArrayIterator(T& v) : m_iterator(v.ptr()), m_cur(0), m_capacity(v.size()) { }
+    fbtArrayIterator(T& v,FBTsizeType cur) : m_iterator(v.ptr()), m_cur(cur), m_capacity(v.size()) { }
+
 
 	~fbtArrayIterator() {}
 
-	FBT_INLINE bool           hasMoreElements(void) const { return m_iterator && m_cur < m_capacity; }
+    FBT_INLINE bool           hasMoreElements(void) const { return m_iterator && m_cur < m_capacity; }
 	FBT_INLINE ValueType      getNext(void)               { FBT_ASSERT(hasMoreElements()); return m_iterator[m_cur++];  }
 	FBT_INLINE ConstValueType getNext(void) const         { FBT_ASSERT(hasMoreElements()); return m_iterator[m_cur++];  }
 	FBT_INLINE void           next(void) const            { FBT_ASSERT(hasMoreElements()); ++m_cur; }
 	FBT_INLINE ValueType      peekNext(void)              { FBT_ASSERT(hasMoreElements()); return m_iterator[m_cur]; }
 	FBT_INLINE ConstValueType peekNext(void) const        { FBT_ASSERT(hasMoreElements()); return m_iterator[m_cur]; }
+
+    FBT_INLINE bool operator==(const fbtArrayIterator& rhs) const {return (m_iterator==rhs.m_iterator && m_cur==rhs.m_cur && m_capacity==rhs.m_capacity);}  // default should work
+    FBT_INLINE static fbtArrayIterator Find(const fbtArrayIterator& start,const fbtArrayIterator& finish,ConstValueType v) {
+        FBT_ASSERT(start.m_iterator==finish.m_iterator);
+        FBT_ASSERT(start.m_capacity==finish.m_capacity);
+        FBT_ASSERT(start.m_cur<finish.m_cur);
+        for (FBTsizeType i = start.m_cur; i < finish.m_cur; i++)   {
+            if (start.m_iterator[i] == v) return fbtArrayIterator(start,i);
+        }
+        return fbtArrayIterator(start,finish.m_cur);
+    }
+
+protected:
+    fbtArrayIterator(const fbtArrayIterator& rhs,FBTsizeType cur) : m_iterator(rhs.m_iterator), m_cur(cur), m_capacity(rhs.m_capacity) { }
+
 
 };
 
@@ -484,8 +501,16 @@ public:
 	typedef fbtArrayIterator<fbtArray<T> >       Iterator;
 	typedef const fbtArrayIterator<fbtArray<T> > ConstIterator;
 
+    typedef Iterator        iterator;
+    typedef ConstIterator   const_Iterator;
+
+
 public:
 	fbtArray() : m_size(0), m_capacity(0), m_data(0), m_cache(0)  {}
+
+    fbtArray(FBTsizeType size) : m_size(0), m_capacity(0), m_data(0), m_cache(0)  {resize(size);}
+
+    fbtArray(FBTsizeType size,const T& fill) : m_size(0), m_capacity(0), m_data(0), m_cache(0)  {resize(size,fill);}
 
 	fbtArray(const fbtArray<T>& o)
 		: m_size(o.size()), m_capacity(0), m_data(0), m_cache(0)
@@ -526,12 +551,16 @@ public:
 		return FBT_NPOS;
 	}
 
+    FBT_INLINE static Iterator Find(const Iterator& start,const Iterator& finish,const ConstValueType& v) {return Iterator::Find(start,finish,v);}
+
 	FBT_INLINE void push_back(const T& v)
 	{
-		if (m_size == m_capacity)
-			reserve(m_size == 0 ? 8 : m_size * 2);
-
-		m_data[m_size] = v;
+        if (m_size == m_capacity)   {
+            const T v_val = v;  // Hehe, v can be a reference to old m_data here!
+            reserve(m_size == 0 ? 8 : (m_size * 2));
+            m_data[m_size] = v_val;
+        }
+        else m_data[m_size] = v;
 		m_size++;
 	}
 
@@ -540,7 +569,6 @@ public:
 		m_size--;
 		m_data[m_size].~T();
 	}
-
 
 	void erase(const T& v)
 	{
@@ -630,8 +658,15 @@ public:
 	FBT_INLINE FBTsizeType size(void) const             { return m_size; }
 	FBT_INLINE bool empty(void) const                   { return m_size == 0;}
 
-	FBT_INLINE Iterator       iterator(void)       { return m_data && m_size > 0 ? Iterator(m_data, m_size) : Iterator(); }
-	FBT_INLINE ConstIterator  iterator(void) const { return m_data && m_size > 0 ? ConstIterator(m_data, m_size) : ConstIterator(); }
+    //FBT_INLINE Iterator       iterator(void)       { return m_data && m_size > 0 ? Iterator(m_data, m_size) : Iterator(); }
+    //FBT_INLINE ConstIterator  iterator(void) const { return m_data && m_size > 0 ? ConstIterator(m_data, m_size) : ConstIterator(); }
+
+    FBT_INLINE Iterator       begin(void)       { return m_data && m_size > 0 ? Iterator(m_data, m_size) : Iterator(); }
+    FBT_INLINE ConstIterator  begin(void) const { return m_data && m_size > 0 ? ConstIterator(m_data, m_size) : ConstIterator(); }
+
+    FBT_INLINE Iterator       end(void)       { return m_data && m_size > 0 ? Iterator(*this, m_size) : Iterator(); }
+    FBT_INLINE ConstIterator  end(void) const { return m_data && m_size > 0 ? ConstIterator(*this, m_size) : ConstIterator(); }
+
 
 	fbtArray<T> &operator= (const fbtArray<T> &rhs)
 	{
@@ -661,6 +696,14 @@ public:
 		if (empty()) return true;
 		return fbtMemcmp(m_data, rhs.m_data, sizeof(T)*m_size) == 0;
 	}
+
+    // Not too sure about this
+    FBT_INLINE void swap(fbtArray<T> &rhs)  {
+        FBTsizeType rhs_size = rhs.m_size; rhs.m_size = m_size; m_size = rhs_size;
+        FBTsizeType rhs_cap = rhs.m_capacity; rhs.m_capacity = m_capacity; m_capacity = rhs_cap;
+        int rhs_cache = rhs.m_cache; rhs.m_cache = m_cache; m_cache = rhs_cache;    // Waht's m_cache  ?
+        Pointer rhs_data = rhs.m_data; rhs.m_data = m_data; m_data = rhs_data;
+    }
 
 protected:
 
@@ -3875,7 +3918,7 @@ fbtBinTables::~fbtBinTables()
 		fbtFree(m_otherBlock);
 
 
-	OffsM::Iterator it = m_offs.iterator();
+    OffsM::Iterator it = m_offs.begin();
 	while (it.hasMoreElements())
 		delete it.getNext();
 }
