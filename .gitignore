@@ -73,6 +73,7 @@ tests/reps/
 *.cfg
 *.ini
 tests/Makefile
+tests/textures
 *.exe
 Tests/test_im*
 Tests/test_shadows

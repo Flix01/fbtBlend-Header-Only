@@ -1017,23 +1017,26 @@ public:
 	typedef fbtHashTableIterator<fbtHashTable<Key, Value> > Iterator;
 	typedef const fbtHashTableIterator<fbtHashTable<Key, Value> > ConstIterator;
 
+    typedef Iterator            iterator;
+    typedef ConstIterator       const_iterator;
+
 
 public:
 
 	fbtHashTable()
-		:    m_size(0), m_capacity(0), m_lastPos(FBT_NPOS),
+        :    m_size(0), m_capacity(0), m_lastPos(FBT_NPOS), m_lastKey(FBT_NPOS),
 		     m_iptr(0), m_nptr(0), m_bptr(0), m_cache(0)
 	{
 	}
 
 	fbtHashTable(FBTsizeType capacity)
-		:    m_size(0), m_capacity(0), m_lastPos(FBT_NPOS),
+        :    m_size(0), m_capacity(0), m_lastPos(FBT_NPOS), m_lastKey(FBT_NPOS),
 		     m_iptr(0), m_nptr(0), m_bptr(0), m_cache(0)
 	{
 	}
 
 	fbtHashTable(const fbtHashTable& rhs)
-		:    m_size(0), m_capacity(0), m_lastPos(FBT_NPOS),
+        :    m_size(0), m_capacity(0), m_lastPos(FBT_NPOS), m_lastKey(FBT_NPOS),
 		     m_iptr(0), m_nptr(0), m_bptr(0), m_cache(0)
 	{
 		doCopy(rhs);
@@ -1243,8 +1246,8 @@ public:
 	FBT_INLINE bool empty(void) const               { return m_size == 0; }
 
 
-	Iterator        iterator(void)       { return m_bptr && m_size > 0 ? Iterator(m_bptr, m_size) : Iterator(); }
-	ConstIterator   iterator(void) const { return m_bptr && m_size > 0 ? ConstIterator(m_bptr, m_size) : ConstIterator(); }
+    Iterator        begin(void)       { return m_bptr && m_size > 0 ? Iterator(m_bptr, m_size) : Iterator(); }
+    ConstIterator   begin(void) const { return m_bptr && m_size > 0 ? ConstIterator(m_bptr, m_size) : ConstIterator(); }
 
 
 	void reserve(FBTsizeType nr)
@@ -1601,6 +1604,191 @@ protected:
 	FBTuint16           m_size;
 	mutable FBThash     m_hash;
 };
+
+
+// For operations with variable size character array
+class fbtString : public fbtArray<char> {
+typedef fbtArray<char> base;
+
+public:
+FBT_INLINE fbtString(int reservedChars=-1) : base() {if (reservedChars>0) base::reserve(reservedChars+1);base::resize(1);operator[](0)='\0';}
+FBT_INLINE fbtString(const fbtString& other) : base() {base::resize(1);operator[](0)='\0';*this = other;}
+FBT_INLINE fbtString(const char* str) : base() {
+    base::resize(1);operator[](0)='\0';
+    *this = str;
+}
+FBT_INLINE int size() const {
+    if (base::size()<1) return 0;
+    return base::size()-1;
+}
+FBT_INLINE int length() const {
+    return size();
+}
+FBT_INLINE bool empty() const {
+    return size()==0;
+}
+
+FBT_INLINE const char* c_str() const {
+    return (internalSize()>0 ? &operator[](0) : NULL);
+}
+FBT_INLINE int compare(const fbtString& other) const  {
+    return (empty() ? -1 : other.empty() ? 1 : strcmp(c_str(),other.c_str()));
+}
+FBT_INLINE bool operator==(const fbtString& other) const {
+    if (internalSize()!=other.internalSize()) return false;
+    //for (int i=0,sz=internalSize();i<sz;i++) {if (operator[](i)!=other[i]) return false;}
+    //return true;
+    return (compare(other)==0);
+}
+FBT_INLINE bool operator!=(const fbtString& other) const {
+    return !operator==(other);
+}
+FBT_INLINE bool operator<(const fbtString& other) const  {
+    return compare(other)<0;
+}
+
+FBT_INLINE const fbtString& operator=(const char* other) {
+    //printf("operator=(const char* other) START: \"%s\" \"%s\"",this->c_str(),other);
+    if (!other) return *this;
+    const int len = strlen(other);
+    base::resize(len+1);
+    for (int i=0;i<len;i++) operator[](i) = other[i];   // strcpy ?
+    operator[](len) = '\0';
+    //printf("operator=(const char* other) END: \"%s\"\n",this->c_str());
+    return *this;
+}
+FBT_INLINE const fbtString& operator=(const fbtString& other) {
+    //printf("operator=(const fbtString& other) START: \"%s\" \"%s\"",this->c_str(),other.c_str());
+    //base::operator=(other); // Warning: fbtArray has NO DEFAULT ASSIGNMENT ATM
+    // -----------------------
+    if (other.size()==0) *this="";
+    else operator=(other.c_str());
+    // -----------------------
+    //printf("operator=(const fbtString& other) END: \"%s\"\n",this->c_str());
+    return *this;
+}
+
+FBT_INLINE const fbtString& operator+=(const fbtString& other) {
+    const int curSize = size();
+    if (curSize==0) return operator=(other);
+    const int len = other.size();
+    base::resize(curSize + len+1);
+    for (int i=curSize;i<curSize+len;i++) operator[](i) = other[i-curSize];
+    operator[](curSize+len) = '\0';
+    return *this;
+
+}
+FBT_INLINE const fbtString& operator+=(const char* other) {
+    if (!other) return *this;
+    const int curSize = size();
+    if (curSize==0) return operator=(other);
+    const int len = strlen(other);
+    base::resize(curSize + len+1);
+    for (int i=curSize;i<curSize+len;i++) operator[](i) = other[i-curSize];
+    operator[](curSize+len) = '\0';
+    return *this;
+}
+FBT_INLINE const fbtString& operator+=(const char c) {
+    const int curSize = internalSize();
+    if (curSize==0) {
+        resize(2);
+        operator[](0) = c;
+        operator[](1) = '\0';
+    }
+    else    {
+        base::resize(curSize + 1);
+        operator[](curSize-1) = c;
+        operator[](curSize) = '\0';
+    }
+    return *this;
+}
+
+static const int npos = -1;
+
+
+FBT_INLINE int find(const char c,int beg = 0) const  {
+    for (int i=beg,sz = size();i<sz;i++)    {
+        if (operator[](i) == c) return i;
+    }
+    return npos;
+}
+FBT_INLINE int find_first_of(const char c,int beg = 0) const {
+    return find(c,beg);
+}
+FBT_INLINE int find_last_of(const char c,int beg = 0) const  {
+    for (int i=size()-1;i>=beg;i--)    {
+        if (operator[](i) == c) return i;
+    }
+    return npos;
+}
+FBT_INLINE int find(const fbtString& s,int beg = 0) const  {
+    int i,j,sz;
+    const int ssize = s.size();
+    if (ssize == 0 || beg+ssize>=size()) return -1;
+    for (i=beg,sz = size()-beg;i<sz;i++)    {
+        for (j=0;j<ssize;j++)   {
+            if (operator[](i+j) != s.operator [](j)) break;
+            if (j==ssize-1) return i;
+        }
+    }
+    return npos;
+}
+FBT_INLINE int find_first_of(const fbtString& s,int beg = 0) const {
+    return find(s,beg);
+}
+// not tested:
+FBT_INLINE int find_last_of(const fbtString& s,int beg = 0) const  {
+    int i,j;
+    const int ssize = s.size();
+    if (ssize == 0 || beg+ssize>=size()) return -1;
+    for (i=size()-ssize-1;i>=beg;i--)    {
+        for (j=0;j<ssize;j++)   {
+            if (operator[](i+j) != s.operator [](j)) break;
+            if (j==ssize-1) return i;
+        }
+    }
+    return npos;
+}
+
+FBT_INLINE const fbtString substr(int beg,int cnt=-1) const {
+    const int sz = size();
+    if (beg>=sz) return fbtString("");
+    if (cnt==-1) cnt = sz - beg;
+    fbtString rv;rv.resize(cnt+1);
+    for (int i=0;i<cnt;i++) {
+        rv.operator [](i) = this->operator [](beg+i);
+    }
+    rv.operator [](cnt) = '\0';
+    return rv;
+}
+
+protected:
+
+private:
+FBT_INLINE int internalSize() const {
+    return base::size();
+}
+FBT_INLINE void reserve(int i) {
+    return base::reserve(i);
+}
+FBT_INLINE void resize(int i) {base::resize(i);}
+FBT_INLINE void clear() {base::clear();}
+FBT_INLINE int findLinearSearch(const char c) {
+    for (int i=0,sz=size();i<sz;i++)    {
+        if (c == operator[](i)) return i;
+    }
+    return npos;
+}
+FBT_INLINE void push_back(const char c) {
+    return base::push_back(c);
+}
+
+friend void fbtStringNonStdResize(fbtString& s,int size);
+
+//TODO: redefine all the other methods we want to hide here...
+};
+FBT_INLINE const fbtString operator+(fbtString v1, const fbtString& v2 ) {return v1+=(v2);}
+
 
 
 enum FBT_PRIM_TYPE

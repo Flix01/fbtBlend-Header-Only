@@ -116,9 +116,9 @@ extern GLuint OpenGLLoadTexture(const char* filename,int req_comp=0,bool useMipm
 extern GLuint OpenGLLoadTextureFromMemory(const unsigned char* filenameInMemory, int filenameInMemorySize, int req_comp=0, bool useMipmapsIfPossible=false,bool wraps=true,bool wrapt=true);
 // End Interface
 
-#include <string>
-//#include <vector>
-#include <map>
+//#include <string>         // replaced by fbtStrng
+//#include <vector>         // replaced by fbtArray
+#include <map>              // all occurrecies of std::map removed, but a std::multimap is still present (don't know how to replace it)
 //#include <algorithm>
 struct Material	{
     float amb[4];
@@ -338,29 +338,43 @@ struct OpenGLTextureFlipperScope {
     OpenGLTextureFlipperScope() {OpenGLFlipTexturesVerticallyOnLoad(true);}
     ~OpenGLTextureFlipperScope() {OpenGLFlipTexturesVerticallyOnLoad(false);}
 };
-static GLuint GetTextureFromBlender(const Blender::Image* im,const std::string& blendModelParentFolder="",std::map<uintptr_t,GLuint>* pPackedFileMap=NULL,std::map<std::string,GLuint>* pExternFileMap=NULL,std::string* pOptionalTextureFilePathOut=NULL) {
+
+typedef fbtHashTable<fbtCharHashKey,GLuint> MyMap_String_GLuint;
+typedef fbtHashTable<fbtSizeHashKey,GLuint> MyMap_UintPtr_GLuint;
+
+static GLuint GetTextureFromBlender(const Blender::Image* im,const fbtString& blendModelParentFolder="",MyMap_UintPtr_GLuint* pPackedFileMap=NULL,MyMap_String_GLuint* pExternFileMap=NULL,fbtString* pOptionalTextureFilePathOut=NULL) {
     if (!im) return 0;
 
     OpenGLTextureFlipperScope textureFlipperScope;  // Well, stb_image needs it...
     if (im->packedfile) {
         if (pOptionalTextureFilePathOut) *pOptionalTextureFilePathOut="//embedded";
         if (pPackedFileMap) {
-            std::map<uintptr_t,GLuint>::const_iterator it;
-            if ( (it=pPackedFileMap->find((uintptr_t) im->packedfile->data))!=pPackedFileMap->end() ) return it->second;
+            //MyMap_UintPtr_GLuint::const_iterator it;
+            GLuint* pValue=NULL;
+            if ( (pValue=pPackedFileMap->get(fbtSizeHashKey((uintptr_t) im->packedfile->data))) ) {
+                //fprintf(stderr,"pPackedFileMap:\t\"%lu\" already processed. Reused.\n",(unsigned long) im->packedfile->data);
+                return *pValue;
+            }
         }
         const GLuint texId = OpenGLLoadTextureFromMemory((const unsigned char*)im->packedfile->data,im->packedfile->size,0,true);
-        if (pPackedFileMap) (*pPackedFileMap)[(uintptr_t)im->packedfile->data] = texId;
+        if (pPackedFileMap) {
+            pPackedFileMap->insert(fbtSizeHashKey((uintptr_t) im->packedfile->data),texId);
+            //fprintf(stderr,"pPackedFileMap:\t\"%lu\" stored.\n",(unsigned long) im->packedfile->data);
+        }
         return texId;
     }
-    std::string texturePath = im->name;
+    fbtString texturePath = im->name;
     if (pExternFileMap) {
-        std::map<std::string,GLuint>::const_iterator it;
-        if ( (it=pExternFileMap->find(std::string(im->name)))!=pExternFileMap->end() ) return it->second;
+        GLuint* pValue=NULL;
+        if ( (pValue=pExternFileMap->get(fbtCharHashKey(im->name))) ) {
+            //fprintf(stderr,"pExternFileMap:\t\"%s\" already processed. Reused.\n",im->name);
+            return *pValue;
+        }
     }
     if (texturePath.size()>2 && texturePath[0]=='/' && texturePath[1]=='/') texturePath = texturePath.substr(2);
     GLuint texId = 0;
     if (blendModelParentFolder.size()>0) {
-        const std::string fullTexturePath = blendModelParentFolder + "/" + texturePath;
+        const fbtString fullTexturePath = blendModelParentFolder + "/" + texturePath;
         texId = OpenGLLoadTexture(fullTexturePath.c_str(),0,true);
         if (pOptionalTextureFilePathOut && texId!=0) *pOptionalTextureFilePathOut = fullTexturePath;
     }
@@ -371,11 +385,14 @@ static GLuint GetTextureFromBlender(const Blender::Image* im,const std::string& 
             else  *pOptionalTextureFilePathOut = "";
         }
     }
-    if (texId && pExternFileMap) (*pExternFileMap)[std::string(im->name)] = texId;
+    if (texId && pExternFileMap) {
+        pExternFileMap->insert(fbtCharHashKey(im->name),texId);
+        //fprintf(stderr,"pExternFileMap:\t\"%s\" stored.\n",im->name);
+    }
 
     return texId;
 }
-static bool GetTextureFromBlender(const Blender::Material* parentMaterial,BlenderTexture& btexOut,const std::string& blendModelParentFolder="",std::map<uintptr_t,GLuint>* pPackedFileMap=NULL,std::map<std::string,GLuint>* pExternFileMap=NULL,BlenderTexture::Mapping mapping = BlenderTexture::MAP_COLOR,std::string* pOptionalTextureFilePathOut=NULL) {
+static bool GetTextureFromBlender(const Blender::Material* parentMaterial,BlenderTexture& btexOut,const fbtString& blendModelParentFolder="",MyMap_UintPtr_GLuint* pPackedFileMap=NULL,MyMap_String_GLuint* pExternFileMap=NULL,BlenderTexture::Mapping mapping = BlenderTexture::MAP_COLOR,fbtString* pOptionalTextureFilePathOut=NULL) {
     if (pOptionalTextureFilePathOut) *pOptionalTextureFilePathOut = "";
     btexOut.reset();
     if (!parentMaterial || !parentMaterial->mtex) return false;
@@ -770,15 +787,15 @@ GLuint OpenGLLoadTextureFromMemory(const unsigned char* filenameInMemory, int fi
 }
 //=========== end stb_image.h binding ========================================
 
-static std::string GetDirectoryName(const std::string& filePath)    {
+static fbtString GetDirectoryName(const fbtString& filePath)    {
     if (filePath[filePath.size()-1]==':' || filePath=="/") return filePath;
-    size_t beg=filePath.find_last_of('\\');
-    size_t beg2=filePath.find_last_of('/');
-    if (beg==std::string::npos) {
-        if (beg2==std::string::npos) return "";
+    int beg=filePath.find_last_of('\\');
+    int beg2=filePath.find_last_of('/');
+    if (beg==fbtString::npos) {
+        if (beg2==fbtString::npos) return "";
         return filePath.substr(0,beg2);
     }
-    if (beg2==std::string::npos) return filePath.substr(0,beg);
+    if (beg2==fbtString::npos) return filePath.substr(0,beg);
     beg=(beg>beg2?beg:beg2);
     return filePath.substr(0,beg);
 }
@@ -1030,9 +1047,9 @@ void InitGL(void) {
         else printf("File \"%s\" loaded successfully.\n",blendfilepath);
         //-----------------------------------------------------------------------
         // NOW COMES THE HARD PART OF CONVERTING MESHES IN blendfile INTO THE GLOBAL VAR meshPartContainer:
-        std::map<uintptr_t,GLuint> packedFileMap;       // Map used to reuse already created embedded textures
-        std::map<std::string,GLuint> externFileMap;     // Map used to reuse already created extern textures
-        const std::string parentFolderPath = ::GetDirectoryName(std::string(blendfilepath));
+        MyMap_UintPtr_GLuint packedFileMap;       // Map used to reuse already created embedded textures
+        MyMap_String_GLuint externFileMap;     // Map used to reuse already created extern textures
+        const fbtString parentFolderPath = ::GetDirectoryName(fbtString(blendfilepath));
 
         //-----------------------------------------------------------------------
         fbtList& objects = blendfile.m_object;long cnt=-1;
@@ -1103,8 +1120,8 @@ void InitGL(void) {
             const int numMaterials = totcol > 0 ? totcol : 1;
             fbtArray< ::Material > materialVector(numMaterials);
             fbtArray< BlenderTexture > textureVector(numMaterials);
-            fbtArray< std::string > materialNameVector(numMaterials);
-            fbtArray< std::string > textureFilePathVector(numMaterials);
+            fbtArray< fbtString > materialNameVector(numMaterials);
+            fbtArray< fbtString > textureFilePathVector(numMaterials);
             if (mat && *mat)	{
                 for (int i = 0; i < ob->totcol; ++i)	{
                     const Blender::Material* ma =  mat[i];
@@ -1128,7 +1145,7 @@ void InitGL(void) {
                     // ma->septex is the ORed flag of the (1-based) texture slots TO EXCLUDE (not to use)
 
                     GetMaterialFromBlender(ma,materialVector[i]);
-                    materialNameVector[i] = std::string(ma->id.name);                    
+                    materialNameVector[i] = fbtString(ma->id.name);
                     GetTextureFromBlender(ma,textureVector[i],parentFolderPath,&packedFileMap,&externFileMap,BlenderTexture::MAP_COLOR,&textureFilePathVector[i]);
                 }
             }
