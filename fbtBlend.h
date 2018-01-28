@@ -501,8 +501,8 @@ public:
 	typedef fbtArrayIterator<fbtArray<T> >       Iterator;
 	typedef const fbtArrayIterator<fbtArray<T> > ConstIterator;
 
-    typedef Iterator        iterator;
-    typedef ConstIterator   const_Iterator;
+    //typedef Iterator        iterator;
+    //typedef ConstIterator   const_Iterator;
 
 
 public:
@@ -658,12 +658,11 @@ public:
 	FBT_INLINE FBTsizeType size(void) const             { return m_size; }
 	FBT_INLINE bool empty(void) const                   { return m_size == 0;}
 
-    //FBT_INLINE Iterator       iterator(void)       { return m_data && m_size > 0 ? Iterator(m_data, m_size) : Iterator(); }
-    //FBT_INLINE ConstIterator  iterator(void) const { return m_data && m_size > 0 ? ConstIterator(m_data, m_size) : ConstIterator(); }
+    FBT_INLINE Iterator       iterator(void)       { return m_data && m_size > 0 ? Iterator(m_data, m_size) : Iterator(); }
+    FBT_INLINE ConstIterator  iterator(void) const { return m_data && m_size > 0 ? ConstIterator(m_data, m_size) : ConstIterator(); }
 
     FBT_INLINE Iterator       begin(void)       { return m_data && m_size > 0 ? Iterator(m_data, m_size) : Iterator(); }
     FBT_INLINE ConstIterator  begin(void) const { return m_data && m_size > 0 ? ConstIterator(m_data, m_size) : ConstIterator(); }
-
     FBT_INLINE Iterator       end(void)       { return m_data && m_size > 0 ? Iterator(*this, m_size) : Iterator(); }
     FBT_INLINE ConstIterator  end(void) const { return m_data && m_size > 0 ? ConstIterator(*this, m_size) : ConstIterator(); }
 
@@ -1017,8 +1016,8 @@ public:
 	typedef fbtHashTableIterator<fbtHashTable<Key, Value> > Iterator;
 	typedef const fbtHashTableIterator<fbtHashTable<Key, Value> > ConstIterator;
 
-    typedef Iterator            iterator;
-    typedef ConstIterator       const_iterator;
+    //typedef Iterator            iterator;
+    //typedef ConstIterator       const_iterator;
 
 
 public:
@@ -1245,6 +1244,9 @@ public:
 	FBT_INLINE FBTsizeType capacity(void) const     { return capacity; }
 	FBT_INLINE bool empty(void) const               { return m_size == 0; }
 
+
+    Iterator        iterator(void)       { return m_bptr && m_size > 0 ? Iterator(m_bptr, m_size) : Iterator(); }
+    ConstIterator   iterator(void) const { return m_bptr && m_size > 0 ? ConstIterator(m_bptr, m_size) : ConstIterator(); }
 
     Iterator        begin(void)       { return m_bptr && m_size > 0 ? Iterator(m_bptr, m_size) : Iterator(); }
     ConstIterator   begin(void) const { return m_bptr && m_size > 0 ? ConstIterator(m_bptr, m_size) : ConstIterator(); }
@@ -4106,7 +4108,7 @@ fbtBinTables::~fbtBinTables()
 		fbtFree(m_otherBlock);
 
 
-    OffsM::Iterator it = m_offs.begin();
+    OffsM::Iterator it = m_offs.iterator();
 	while (it.hasMoreElements())
 		delete it.getNext();
 }

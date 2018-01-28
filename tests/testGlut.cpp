@@ -349,7 +349,6 @@ static GLuint GetTextureFromBlender(const Blender::Image* im,const fbtString& bl
     if (im->packedfile) {
         if (pOptionalTextureFilePathOut) *pOptionalTextureFilePathOut="//embedded";
         if (pPackedFileMap) {
-            //MyMap_UintPtr_GLuint::const_iterator it;
             GLuint* pValue=NULL;
             if ( (pValue=pPackedFileMap->get(fbtSizeHashKey((uintptr_t) im->packedfile->data))) ) {
                 //fprintf(stderr,"pPackedFileMap:\t\"%lu\" already processed. Reused.\n",(unsigned long) im->packedfile->data);
@@ -1974,7 +1973,7 @@ void DestroyGL() {
     // We simply clear meshPartsContainer: but it's not that easy:
     // we must collect displayLists and textureIds
     fbtArray<GLuint> textures,displayLists;
-    fbtArray<GLuint>::iterator it;
+    fbtArray<GLuint>::Iterator it;
     for (int i=0,iSz=(int)meshPartsContainer.size();i<iSz;i++)    {
         MeshPartVector& meshParts = meshPartsContainer[i];
         for (int j=0;j<(int)meshParts.size();j++) {
