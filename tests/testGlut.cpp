@@ -116,10 +116,12 @@ extern GLuint OpenGLLoadTexture(const char* filename,int req_comp=0,bool useMipm
 extern GLuint OpenGLLoadTextureFromMemory(const unsigned char* filenameInMemory, int filenameInMemorySize, int req_comp=0, bool useMipmapsIfPossible=false,bool wraps=true,bool wrapt=true);
 // End Interface
 
+// Removal of STL headers: DONE!
 //#include <string>         // replaced by fbtStrng
 //#include <vector>         // replaced by fbtArray
-#include <map>              // all occurrecies of std::map removed, but a std::multimap is still present (don't know how to replace it)
-//#include <algorithm>
+//#include <map>            // std::map replaced by fbtHashTable<Key,Value>, std::multimap replaced by fbtHashTable<Key, fbtArray<Value> >
+//#include <algorithm>      // std::find(...) replaced by fbtArray<...>::Find(...)
+
 struct Material	{
     float amb[4];
     float dif[4];
@@ -634,7 +636,9 @@ typedef fbtArray<TriFaceInfo> TriFaceInfoVector;
 
 inline static bool IsEqual(float a,float b) {static const float eps = 0.00001;return (a>b) ? a-b<eps : b-a<eps;}
 inline static bool IsEqual(const Vec2& a,const Vec2& b) {return IsEqual(a.x,b.x) && IsEqual(a.y,b.y);}
-inline static int AddTexCoord(int id,const Vec2& tc,MeshVerts& mesh,fbtArray<int>& numTexCoordAssignments,std::multimap<int,int>& texCoordsSingleVertsVertsMultiMap) {
+
+typedef fbtHashTable< fbtIntHashKey, fbtArray<int> > MyMultimap_Int_Int;
+inline static int AddTexCoord(int id,const Vec2& tc,MeshVerts& mesh,fbtArray<int>& numTexCoordAssignments,MyMultimap_Int_Int& texCoordsSingleVertsVertsMultiMap) {
     fbtArray < Vec2 >& texCoords = mesh.texcoords;
 
     if (numTexCoordAssignments[id]==0) {
@@ -646,24 +650,35 @@ inline static int AddTexCoord(int id,const Vec2& tc,MeshVerts& mesh,fbtArray<int
     }
 
     if (!IsEqual(texCoords[id],tc)) {
-        std::multimap<int,int>::iterator start=texCoordsSingleVertsVertsMultiMap.lower_bound(id),last = texCoordsSingleVertsVertsMultiMap.upper_bound(id);
-        for (std::multimap<int,int>::iterator it=start; it!=last; ++it) {
-            const int id2 = it->second;
-            if (IsEqual(texCoords[id2],tc)) {
-                //printf("Found! %d = %d\n",id,id2);
-                return id2;
+        const fbtIntHashKey hashKey(id);fbtArray<int>* pValue = NULL;
+        if ( (pValue=texCoordsSingleVertsVertsMultiMap.get(hashKey)) )  {
+            fbtArray<int>& ids = *pValue;
+            for (FBTsizeType i=0,isz=ids.size();i<isz;i++) {
+                const int id2 = ids[i];
+                if (IsEqual(texCoords[id2],tc)) {
+                    //    printf("Found! %d = %d\t(index: %u)\n",id,id2,i);
+                    return id2;
+                }
             }
         }
+
         // We must create a new vertex here:
         const int id2 = mesh.verts.size();
         mesh.verts.push_back(mesh.verts[id]);
         mesh.norms.push_back(mesh.norms[id]);
         texCoords.push_back(tc);
 
-        texCoordsSingleVertsVertsMultiMap.insert(std::make_pair(id, id2));
-        //printf("New! %d = %d\n",id,id2);
+        // And pass it to the multimap here:
+        if (pValue) pValue->push_back(id2);
+        else {
+            fbtArray<int> ids(1); ids[0]=id2;
+            texCoordsSingleVertsVertsMultiMap.insert(hashKey,ids);
+        }
+        //    printf("New! %d = %d\t(cnt: %d)\n",id,id2,pValue ? pValue->size() : 1);
+
         return id2;
     }
+
     //printf("OK! %d = %d\n",id,id);
     return id;
 }
@@ -1279,9 +1294,9 @@ void InitGL(void) {
 
             Vec2 tc;int li0,li1,li2,li3,vi0,vi1,vi2,vi3;
 
-            // INDS AND TEXCOORDS--(NOT MIRRORED)..........................
+            // INDS AND TEXCOORDS--(NOT MIRRORED)..........................            
             fbtArray<int> numTexCoordAssignments(numSingleVerts,0);
-            std::multimap<int,int> texCoordsSingleVertsVertsMultiMap;
+            MyMultimap_Int_Int texCoordsSingleVertsVertsMultiMap;
             if (hasFaces)
             {
                 // NEVER TESTED: only old .blend files have this
@@ -1622,9 +1637,9 @@ void InitGL(void) {
 
                 }
 
-
-
             }
+            // numTexCoordAssignments and texCoordsSingleVertsVertsMultiMap are no more used below
+
             if (hasTexCoords) {
                 const float vertsRatio = (float) verts.size()/(float)numSingleVerts;
                 if (vertsRatio>2) {
