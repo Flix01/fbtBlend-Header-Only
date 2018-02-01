@@ -580,6 +580,7 @@ struct MeshPart {
     }
 };
 struct MeshPartVector : public fbtArray < MeshPart > {
+    // It's a single Blender Object that contains or links a mesh
     typedef fbtArray < MeshPart > Base;
 public:
     float mMatrix[16];
@@ -594,13 +595,14 @@ public:
         visible = true;
     }
 };
-typedef fbtArray < MeshPartVector > MeshPartVectorContainer;
+typedef fbtArray < MeshPartVector > MeshPartVectorContainer; // It's a collection of all Blender Objects that contain or link any mesh in the .blend file
 /*struct MeshPartVectorContainer : public std::vector < MeshPartVector > {
     typedef std::vector < MeshPartVector > Base;
     public:
 };*/
 MeshPartVectorContainer meshPartsContainer; // This is the only output of our blend parsing!
 
+// But we need many other intermediate internal structs to pass from the .blend file to 'meshPartsContainer'.
 struct MeshVerts {
     Vector3Array verts;
     Vector3Array norms;
@@ -907,7 +909,7 @@ float vMatrix[16];              // view matrix
 float cameraSpeed = 0.5f;       // When moving it
 
 // light data
-float lightDirection[3] = {1,2,2};// Will be normalized
+float lightDirection[3] = {200,-250,400};// Will be normalized in InitGL()
 
 // pMatrix data:
 float pMatrix[16];                  // projection matrix
@@ -1187,7 +1189,7 @@ void InitGL(void) {
 
                 // Filling mMatrix
                 {
-                    // Here we support parenting (TO BE TESTED)
+                    // Here we support parenting at startup (TO BE TESTED): but of course if later in our code we move the parent, children don't move!
                     Blender::Object* obcur = ob;
                     // Retrieve data from ob:
                     float mMatrixParent[16];
@@ -1832,7 +1834,7 @@ void InitGL(void) {
             */
 
             // The following code is mandatory if we don't use the Blender Object Transform (when we apply object loc, rot and scale in Blender)
-            // But we now leave the "Edit mode mesh" in the same Blender coords, and just adjust a twaked Object Transform
+            // But we now leave the "Edit mode mesh" in the same Blender coords, and just adjust a tweaked Object Transform
             /*
             float tmp;const bool hasNorms = verts.size()==norms.size();
             for (int i=0,iSz=(int)verts.size();i<iSz;i++) {
@@ -1965,6 +1967,10 @@ void InitGL(void) {
     // Lighting
     const float globalAmbient[4] = {0.45f,0.45f,0.45f,1.f};
     glLightModelfv(GL_LIGHT_MODEL_AMBIENT,globalAmbient);
+#   if (defined(GL_LIGHT_MODEL_COLOR_CONTROL) && defined(GL_SEPARATE_SPECULAR_COLOR))
+    // Optional: display specular highlight over textures
+    glLightModeli(GL_LIGHT_MODEL_COLOR_CONTROL, GL_SEPARATE_SPECULAR_COLOR);    // GL_SINGLE_COLOR or GL_SEPARATE_SPECULAR_COLOR
+#   endif // GL_LIGHT_MODEL_COLOR_CONTROL
 
     glEnable(GL_LIGHTING);
     glEnable(GL_LIGHT0);
@@ -2050,10 +2056,11 @@ void DrawGL(void)
     glMatrixMode(GL_MODELVIEW);
     glLoadMatrixf(vMatrix);
 
+
     glPushMatrix();
     // Draw something here-------------
 
-    /*
+    /* // Ground plane and teapot test (to tweak the camera)
     glPushMatrix(); {
         glTranslatef(0,-1,0);
         glColor3f(.1f,.4f,.2f);
@@ -2062,7 +2069,7 @@ void DrawGL(void)
     }
     glPopMatrix();
 
-    glFrontFace(GL_CW); // These seem to be CW rendered
+    glFrontFace(GL_CW); // This seem to be CW rendered
     glPushMatrix(); {
         glTranslatef(0,1,0);
         glColor3f(1.0f,1.0f,0.f);
@@ -2076,12 +2083,12 @@ void DrawGL(void)
     // Draw all objects with meshes inside the .blend file
     const int blenderLayersToDisplay = -1;   // It's a bit mask (eg. 1,2,4,...). -1 means all layers
     for (int i=0,iSz=(int)meshPartsContainer.size();i<iSz;i++)    {
-        const MeshPartVector& mpv = meshPartsContainer[i];  // This should represent a single mesh AFAIR
+        const MeshPartVector& mpv = meshPartsContainer[i];  // This should represent a single Blender Object that contains or links a mesh AFAIR
         if (mpv.visible && (mpv.layer&blenderLayersToDisplay)!=0) {
             glPushMatrix();
             glMultMatrixf(mpv.mMatrix);
             glScalef(mpv.mScaling[0],mpv.mScaling[1],mpv.mScaling[2]);
-            MeshPart::Draw(mpv);
+            MeshPart::Draw(mpv);    // This draws all the mesh subparts of this Blender Object (split by Material; each part has a single Display List)
             glPopMatrix();
         }
     }
