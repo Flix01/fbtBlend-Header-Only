@@ -41,7 +41,7 @@
        int parse(const char* path, int mode);
        // This allows auto-detection of the .blend file compression, by just using: parse(const char* path);
      -> Added a public static helper method fbtFile::UTF8_fopen(...) (used internally to to allow UTF8 char paths on Windows).
-     -> Minor changes made to class fbtArray<...> and its iterator (but code it's still backward-compatible).
+     -> Minor changes made to class fbtArray<...> and its iterator (but code is still backward-compatible).
      -> Added class fbtString (not used here), as a replacement for std::string.
 */
 #ifndef _fbtBlend_h_
@@ -1843,6 +1843,8 @@ FBT_INLINE bool fbtIsNumberType(FBTuint32 typeKey)
 class fbtStream;
 class fbtBinTables;
 
+#include <stdio.h> // FILE*, used in the static helper method fbtFile::UTF8_fopen(...)
+                   // (unluckily there's no way to forward-declare FILE)
 
 class fbtFile
 {
