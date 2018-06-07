@@ -10,11 +10,13 @@ Here there's a version updated to Blender 2.79 and amalgamated into two header f
 
 Two demos are available: **testConsole.cpp** and **testGlut.cpp** (they contain build instructions for Linux and Windows).
 
+A third demo is present in the subfolder **test_skeletal_animation** (build instructions are at the top of **test_skeletal_animation/main.cpp**).
+
 ## Dependencies
 
-* zlib (optional, to load compressed .blend files)
+* zlib (optional but recommended, to load compressed .blend files)
 
-**testGlut.cpp needs:**
+**testGlut.cpp and test_skeletal_animation need:**
 
 * glut (or freeglut)
 * glew (Windows only)
@@ -22,6 +24,10 @@ Two demos are available: **testConsole.cpp** and **testGlut.cpp** (they contain 
 
 ## Screenshots
 ![testGlut](./screenshots/testGlut.png)
+
+![test_skeletal_animation_header](./screenshots/test_skeletal_animation_header.png)
+-------------------------------------------------------------------------------------
+![test_skeletal_animation](./screenshots/test_skeletal_animation.gif)
 
 
 ## Useful Links:

@@ -91,7 +91,13 @@ fbtBlendUpdater/bftBlend.h
 tests/testConsole
 tests/testGlut
 280/
-
+test_skeletal_animation/html
+test_skeletal_animation/glm
+32bit/
+test_skeletal_animation/test_skeletal_animation
+!test_skeletal_animation/ManuelLab140_Test.blend
+!test_skeletal_animation/man4.blend
+test_skeletal_animation/Makefile
 
 
 

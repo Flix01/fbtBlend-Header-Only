@@ -895,10 +895,6 @@ int gameModeWindowId = 0;	// window Id when in fullscreen mode
 
 // Now we can start with our program
 
-// About float (teapot_float):
-// float is just float or double: normal users should just use float and don't worry
-// We use it just to test the (optional) definition: TEAPOT_MATRIX_USE_DOUBLE_PRECISION
-
 // camera data:
 float targetPos[3];             // please set it in resetCamera()
 float cameraYaw;                // please set it in resetCamera()
@@ -1028,6 +1024,38 @@ static __inline float* MultMat16(float result16[16],const float ml16[16],const f
     }
     return result16;
 }
+// It works only for translation + rotation, and only when rotation can be represented by an unit quaternion, scaling is discarded
+static __inline float* InvertFastMat16(float* mOut16,const float* m16)	{
+    // It works only for translation + rotation, and only when rotation can be represented by an unit quaternion, scaling is discarded
+    if (mOut16==m16) {
+        float tmp[16];for (int i=0;i<16;i++)    tmp[i]=m16[i];
+        return InvertFastMat16(mOut16,tmp);
+    }
+    const float* m = m16;
+    float* n = mOut16;
+    const float T[3] = {-m[12],-m[13],-m[14]};
+    float w;
+    // Step 1. Transpose the 3x3 submatrix
+    /* 0   4   8   12
+       1   5   9   13
+       2   6   10  14 */
+    n[3]=m[3];n[7]=m[7];n[11]=m[11];n[15]=m[15];
+    n[0]=m[0];n[1]=m[4];n[2]=m[8];
+    n[4]=m[1];n[5]=m[5];n[6]=m[9];
+    n[8]=m[2];n[9]=m[6];n[10]=m[10];
+    // Step2. Adjust translation
+    /*n[12]=T[0]*n[0] + T[1]*n[1] + T[2]*n[2];
+    n[13]=T[0]*n[4] + T[1]*n[5] + T[2]*n[6];
+    n[14]=T[0]*n[8] + T[1]*n[9] + T[2]*n[10];*/
+    //w    =T[0]*n[12]+ T[1]*n[13]+ T[2]*n[14];
+    n[12]=T[0]*n[0] + T[1]*n[4] +T[2]*n[8];
+    n[13]=T[0]*n[1] + T[1]*n[5] +T[2]*n[9];
+    n[14]=T[0]*n[2] + T[1]*n[6] +T[2]*n[10];
+    w    =T[0]*n[3] + T[1]*n[7] +T[2]*n[11];
+    if (w!=0 && w!=1) {n[12]/=w;n[13]/=w;n[14]/=w;} // These last 2 lines are not strictly necessary AFAIK
+    return mOut16;
+}
+
 
 int current_width=0,current_height=0;  // Not sure when I've used these...
 void ResizeGL(int w,int h) {
@@ -1183,41 +1211,47 @@ void InitGL(void) {
             }
 
 
+//#           define TRY_TO_PRESERVE_IDENTITY_OBJECT_MATRICES   // DOESN'T WORK! Ideally we would like to have identity mMatrices when they were identity objects matrices inside Blender (this is related to the axis change). But that's too difficult for me.
             // OBJECT TRANSFORM
             {
                 float mMatrix[16]; // The one stored in ob->obmat, in float16 format
 
                 // Filling mMatrix
                 {
-                    // Here we support parenting at startup (TO BE TESTED): but of course if later in our code we move the parent, children don't move!
-                    Blender::Object* obcur = ob;
                     // Retrieve data from ob:
-                    float mMatrixParent[16];
-                    while (obcur) {
-                        for (int i=0;i<4;i++) {
-                            for (int j=0;j<4;j++) {
-                                mMatrix[j*4+i] = obcur->obmat[j][i];
-                            }
+                    for (int i=0;i<4;i++) {
+                        for (int j=0;j<4;j++) {
+                            mMatrix[j*4+i] = ob->obmat[j][i];
                         }
-                        Blender::Object* obcurparent = obcur->parent;
-                        if (obcurparent) {
+                    }
+
+                    /*// Here we support parenting at startup (TO BE TESTED): but of course if later in our code we move the parent, children don't move!
+                    if (ob->parent) {
+                        fprintf(stderr,"ob:\"%s\"\t",ob->id.name);
+                        float mMatrixParent[16];Blender::Object* obcur = ob;
+                        while ((obcur=obcur->parent)) {
                             for (int i=0;i<4;i++) {
                                 for (int j=0;j<4;j++) {
-                                    mMatrixParent[j*4+i] = obcurparent->obmat[j][i];
+                                    mMatrixParent[j*4+i] = obcur->obmat[j][i];
                                 }
                             }
                             MultMat16(mMatrix,mMatrixParent,mMatrix);
+                            //MultMat16(mMatrix,mMatrix,mMatrixParent);
+                            fprintf(stderr,"parent_ob:\"%s\"\t",obcur->id.name);
                         }
-                        obcur = obcurparent;
-                    }
+                        fprintf(stderr,"\n");
+                    }*/
                 }
 
-#               define EXTRACT_SCALING  // Optional (having a mMatrix without scaling can help in some application)
+//#               define EXTRACT_SCALING  // Optional (having a mMatrix without scaling can help in some application)
 #               ifdef EXTRACT_SCALING
                 // We remove the scaling inside mMatrix[16], putting it into meshParts.mScaling[3]
                 meshParts.mScaling[0] = Vec3Normalize(mMatrix[0],mMatrix[1],mMatrix[2]);
                 meshParts.mScaling[1] = Vec3Normalize(mMatrix[4],mMatrix[5],mMatrix[6]);
                 meshParts.mScaling[2] = Vec3Normalize(mMatrix[8],mMatrix[9],mMatrix[10]);
+#                   ifdef TRY_TO_PRESERVE_IDENTITY_OBJECT_MATRICES
+                {float tmp = meshParts.mScaling[1]; meshParts.mScaling[1] = meshParts.mScaling[2]; meshParts.mScaling[2] = tmp;}
+#                   endif // TRY_TO_PRESERVE_IDENTITY_OBJECT_MATRICES
                 //printf("mScaling[3]={%1.2f,%1.2f,%1.2f};\tob->size[3]={%1.2f,%1.2f,%1.2f};\n",meshParts.mScaling[0],meshParts.mScaling[1],meshParts.mScaling[2],ob->size[0],ob->size[1],ob->size[2]);
 #               undef EXTRACT_SCALING
 #               endif //EXTRACT_SCALING
@@ -1232,12 +1266,50 @@ void InitGL(void) {
 
                 // Ok, now we convert mMatrix to meshParts.mMatrix:
                 for (int i=0;i<16;i++) meshParts.mMatrix[i] = mMatrix[i];
-                // We must adjust meshParts.mMatrix so that: newY = oldZ; newZ = -oldY
+#               ifndef TRY_TO_PRESERVE_IDENTITY_OBJECT_MATRICES
+                // We must adjust meshParts.mMatrix so that: newY = oldZ; newZ = -oldY.
+                // This (empiric) solution seems to work.
                 for (int i=0;i<4;i++) {
                     meshParts.mMatrix[4*i+1] = mMatrix[4*i+2];
                     meshParts.mMatrix[4*i+2] = -mMatrix[4*i+1];
                 }
+                // The (analitic) solution would be (it works):
+//                static const float rot16[16]={1,0,0,0, 0,0,-1,0, 0,1,0,0, 0,0,0,1}; // (Rotate -90° around X axis)
+//                MultMat16(meshParts.mMatrix,rot16,mMatrix);
+#               else // TRY_TO_PRESERVE_IDENTITY_OBJECT_MATRICES
+                {
 
+                    // These operations should NOT modify an identity mMatrix! (But fix the others)
+
+                    // Translations
+                    meshParts.mMatrix[13] = mMatrix[14]; meshParts.mMatrix[14] = -mMatrix[13];
+                    //meshParts.mMatrix[12] = -mMatrix[12];
+
+                    // Rotations:
+                    //meshParts.mMatrix[5] = mMatrix[10];  meshParts.mMatrix[10] =   mMatrix[5];
+                    //meshParts.mMatrix[6] = -mMatrix[9];   meshParts.mMatrix[9] =   mMatrix[6];
+                    //meshParts.mMatrix[6] = -mMatrix[9];   meshParts.mMatrix[9] =   mMatrix[6];
+
+                    // Transpose submatrix 3x3 (inverting some sign...)
+//                    meshParts.mMatrix[1]=mMatrix[4];meshParts.mMatrix[4]=mMatrix[1];
+//                    meshParts.mMatrix[2]=mMatrix[8];meshParts.mMatrix[8]=mMatrix[2];
+//                    meshParts.mMatrix[6]=-mMatrix[9];meshParts.mMatrix[9]=-mMatrix[6];
+
+//                    meshParts.mMatrix[1]=-mMatrix[1];meshParts.mMatrix[4]=-mMatrix[4];
+//                    meshParts.mMatrix[2]=-mMatrix[2];meshParts.mMatrix[8]=-mMatrix[8];
+                    meshParts.mMatrix[6]=-mMatrix[6];meshParts.mMatrix[9]=-mMatrix[9];
+
+
+                    /*static const float Identity[16]={1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1};
+                    static const float Rotated[16] ={1,0,0,0, 0,0,1,0, 0,1,0,0, 0,0,0,1};
+                    static float RotatedInverted[16] ={0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+                    if (RotatedInverted[15]==0.f) InvertFastMat16(RotatedInverted,Rotated);*/
+
+
+                    //MultMat16(meshParts.mMatrix,RotatedInverted,mMatrix);
+                    //MultMat16(meshParts.mMatrix,mMatrix,RotatedInverted);
+                }
+#               endif //TRY_TO_PRESERVE_IDENTITY_OBJECT_MATRICES
 
                 /*printf("\t\tmeshParts.mMatrix:\n");
                 for (int i=0;i<4;i++) {
@@ -1835,7 +1907,7 @@ void InitGL(void) {
 
             // The following code is mandatory if we don't use the Blender Object Transform (when we apply object loc, rot and scale in Blender)
             // But we now leave the "Edit mode mesh" in the same Blender coords, and just adjust a tweaked Object Transform
-            /*
+#           ifdef TRY_TO_PRESERVE_IDENTITY_OBJECT_MATRICES
             float tmp;const bool hasNorms = verts.size()==norms.size();
             for (int i=0,iSz=(int)verts.size();i<iSz;i++) {
                 // newY = oldZ; newZ = oldY
@@ -1850,7 +1922,8 @@ void InitGL(void) {
                     // ???
                 }
             }
-            */
+#           endif //TRY_TO_PRESERVE_IDENTITY_OBJECT_MATRICES
+
 
             /*int tmpi=0;   // This changes the triangle winding order
             for (int i=0;i<numMaterials;i++) {
