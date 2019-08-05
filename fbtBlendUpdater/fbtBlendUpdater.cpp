@@ -313,10 +313,11 @@ struct BlendDNA1Block {
         const uint16_t len = strlen(name);
         if (len<4 || name[len-1]!=']') return 1;    // "a[2]"
         // We want to parse something like "name[20][10]" too
-        uint16_t rv = 1;int e = len-1;
+        uint16_t rv = 1;int e = len-1;//int array_dimension = 0;
         for (int i=e-1;i>=0;--i) {
             const char c = name[i];
             if (c=='[') {
+				//++array_dimension;                    
                 uint32_t tmp = 1;
                 char tmpc[16]="";
                 strncpy(tmpc,&name[i+1],e-i-1);
@@ -325,12 +326,13 @@ struct BlendDNA1Block {
                 if (sscanf(tmpc,"%u",&tmp)<=0) break;
                 rv*=tmp;
                 if (i>0 && name[i-1]==']') {
-                    e = i-1;--i;continue;
+					e = i-1;--i;continue;
                 }
                 else break;
             }
             if (c<'0' || c>'9') break;
         }
+		//if (array_dimension>1) printf("name: %s -> dim: %d -> rv: %u\n",name,array_dimension,rv);
         return rv;
     /*
     // Tests:

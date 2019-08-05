@@ -21,6 +21,12 @@ A third demo is present in the subfolder **test_skeletal_animation** (build inst
 * glut (or freeglut)
 * glew (Windows only)
 
+## Blender 2.80 version
+
+In the *280* repository folder there's a version of **fbtBlend.h** and **Blender.h** updated for Blender 2.80.
+In the *280/tests* subfolder there are versions of **testConsole.cpp** and **testGlut.cpp** that should compile correctly with this version.
+Please note that **280/tests/testGlut.cpp** is the same as the 2.79 version, except that all materials have been stripped, because Blender 2.80 doesn't support "Blender Internal" materials anymore.
+Of course I'll **NEVER** make a version that can display physic-based materials... be warned!
 
 ## Screenshots
 ![testGlut](./screenshots/testGlut.png)

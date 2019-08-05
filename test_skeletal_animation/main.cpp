@@ -34,7 +34,7 @@ is licensed under CC-BY 4.0.
 /*
 // IMPORTANT:
 // LINUX:
-g++ -O2 *.cpp -o test_skeletal_animation -D"FBT_USE_GZ_FILE=1" -I"../" -I"./" -lglut -lGL -lz -lX11 -lm
+g++ -O2 -no-pie *.cpp -o test_skeletal_animation -D"FBT_USE_GZ_FILE=1" -I"../" -I"./" -lglut -lGL -lz -lX11 -lm
 // WINDOWS (here we use the static version of glew, and glut32.lib, that can be replaced by freeglut.lib):
 cl /O2 /MT *.cpp /I"./" /I"../" /D"GLEW_STATIC"  /D"FBT_USE_GZ_FILE=1" /link /out:test_skeletal_animation.exe glut32.lib glew32s.lib opengl32.lib gdi32.lib zlib.lib Shell32.lib comdlg32.lib user32.lib kernel32.lib
 // EMSCRIPTEN (untested):
@@ -71,11 +71,19 @@ for glut.h, glew.h, etc. with something like:
  *    -> Better remove all the shader stuff and write code that uses software skinning instead,
  *       so that it's usable with the fixed-function-pipeline too, and it's more flexible,
  *       'cause users need to replace the hard-coded shaders in any case to suit their needs.
- * -> If possible rewrite math_helper.hpp in plain C (this would require almost a full rewrite of all code).
+ * -> [*] If possible rewrite math_helper.hpp in plain C (this would require almost a full rewrite of all code).
  * -> Rename mesh.h/mesh.cpp to something like animatedMesh.h/animatedMesh.cpp.
  * -> Write code to load/save an animated mesh from/to file (so that we can use the code without meshBlender.cpp and fbtBlend.h too).
  * -> Add (optionally) meshAssimp.cpp so that we can use the assimp library if necessary (I must have already an old version of this file somewhere...).
+
+ * [*] UPDATE: about the rewrite of math_helper.hpp in plain C, I'm making: https://github.com/Flix01/Header-Only-GL-Helpers/blob/master/minimath.h
+ *     It's a C/C++ math library. Once downloaded, it's possible to replace math_helper.hpp with minimath.h by defining USE_MINIMATH_H
+ *     However it's not recommended: for this demo math_helper.hpp is probably more reliable (and that's why minimath.h is not included).
 */
+
+#ifdef USE_MINIMATH_H
+#   define MINIMATH_IMPLEMENTATION
+#endif
 
 #include "mesh.h"
 #include <assert.h>

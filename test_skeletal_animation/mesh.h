@@ -7,7 +7,11 @@
 //#include <glm/ext.hpp>                  // glm::perspective(...), glm::value_ptr(...),etc.
 //#include <glmMissingMethods.hpp>        // plain glm is not enough (Ogre Math would probably be enough...)
 
+#ifndef USE_MINIMATH_H
 #include <math_helper.hpp>
+#else
+#include <minimath.h>
+#endif
 
 // GL types (and calls) are be included by this header-----
 #include "opengl_includer.h"
@@ -437,11 +441,11 @@ class Mesh	{
         };
         typedef MESH_H_STD_MAP<unsigned,  BoneAnimationInfo> MapUnsignedBoneAnimationInfo;
         MapUnsignedBoneAnimationInfo boneAnimationInfoMap;
-		GLM_INLINE const BoneAnimationInfo* getBoneAnimationInfo(unsigned animationIndex) const	{
+        inline const BoneAnimationInfo* getBoneAnimationInfo(unsigned animationIndex) const	{
             MapUnsignedBoneAnimationInfo::const_iterator it = boneAnimationInfoMap.find(animationIndex);
 			return (it!=boneAnimationInfoMap.end() ? &it->second : NULL);
 		}
-		GLM_INLINE  BoneAnimationInfo* getBoneAnimationInfo(unsigned animationIndex) {
+        inline  BoneAnimationInfo* getBoneAnimationInfo(unsigned animationIndex) {
             MapUnsignedBoneAnimationInfo::iterator it = boneAnimationInfoMap.find(animationIndex);
 			return (it!=boneAnimationInfoMap.end() ? &it->second : NULL);
 		}

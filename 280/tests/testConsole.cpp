@@ -64,7 +64,7 @@ int main(int argc, const char* argv[]) {
                     if (mdf->type==1) {
                         // Subsurf modifier:
                         const Blender::SubsurfModifierData* md = (const Blender::SubsurfModifierData*) mdf;
-                        printf("SubsurfModifier: subdivType:%d levels:%d renderLevels:%d  flags:%d  use_opensubdiv:%d\n",md->subdivType,md->levels,md->renderLevels,md->flags,md->use_opensubdiv);
+                        printf("SubsurfModifier: subdivType:%d levels:%d renderLevels:%d  flags:%d \n",md->subdivType,md->levels,md->renderLevels,md->flags);
                     }
                     if (mdf->type==5) {
                         //Mirror modifier:

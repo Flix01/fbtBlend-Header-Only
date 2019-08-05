@@ -2216,11 +2216,11 @@ static void LoadAction(Mesh& mesh,const Blender::bAction* act,float frs_sec=24.f
                            /*
                            //const bool useAxisConventionOpenGL = true;
                            static Matrix3 m;
-                           glm::Mat3::FromEuler(m,eul[0],eul[1],eul[2],eulerRotationMode);//,useAxisConventionOpenGL);
+                           glm::mat3::FromEuler(m,eul[0],eul[1],eul[2],eulerRotationMode);//,useAxisConventionOpenGL);
                            //fprintf(stderr,"From Euler animationTypeEnum=%d\n\n",animationTypeEnum);
                            qua.value = glm::quat_cast(m);
                            qua.value.x = -qua.value.x;qua.value.y = -qua.value.y;qua.value.z = -qua.value.z;qua.value.w = -qua.value.w;  // useless (but matches blender in my test-case
-                           qua.value.w = -qua.value.w;  //why???? Because glm::Mat3::FromEuler(...) is wrong... in fact code below does not need it:
+                           qua.value.w = -qua.value.w;  //why???? Because glm::mat3::FromEuler(...) is wrong... in fact code below does not need it:
                            */
 
                            const glm::quat qx(eul.x,glm::vec3(1.0,0.0,0.0));
@@ -2235,8 +2235,9 @@ static void LoadAction(Mesh& mesh,const Blender::bAction* act,float frs_sec=24.f
                            case glm::EULER_ZYX: qua.value = qx*qy*qz;break;
                            default: qua.value = qz*qy*qx;break;
                            }
+                           // is the code above wrapped in this line or not?
+                           //qua.value = glm::quat_FromEuler(eul[0],eul[1],eul[2],eulerRotationMode);
                            qua.value.x = -qua.value.x;qua.value.y = -qua.value.y;qua.value.z = -qua.value.z;qua.value.w = -qua.value.w;
-
 
                            /*static bool firstTime = true;if (firstTime) {firstTime=false;
                                printf("%s:       {%1.4f   %1.4f   %1.4f}    =>  {%1.4f  %1.4f   %1.4f   %1.4f};\n",bi->boneName.c_str(),glm::degrees(eul[0]),glm::degrees(eul[1]),glm::degrees(eul[2]),qua.value.w,qua.value.x,qua.value.y,qua.value.z);
@@ -2591,7 +2592,7 @@ static inline void GetObjectTransform(Blender::Object* ob,glm::mat3& rot,glm::ve
 
     if (ob->rotmode>0 && ob->rotmode<7) {
         //printf("[%1.4f %1.4f %1.4f] %d\n",btDegrees(ob->rot[0]),btDegrees(ob->rot[1]),btDegrees(ob->rot[2]),(int)ob->rotmode);
-        glm::Mat3::FromEuler(obR,ob->rot[0],ob->rot[1],ob->rot[2],(glm::EulerRotationMode) ob->rotmode);//,false);
+        glm::mat3::FromEuler(obR,ob->rot[0],ob->rot[1],ob->rot[2],(glm::EulerRotationMode) ob->rotmode);//,false);
         //fprintf(stderr,"From Euler ob->rotmode=%d\n\n",ob->rotmode);
     }
     else if (ob->rotmode==0)    {

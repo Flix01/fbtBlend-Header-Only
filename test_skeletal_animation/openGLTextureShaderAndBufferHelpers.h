@@ -1,3 +1,5 @@
+#include <string.h> // memcpy
+
 typedef unsigned GLuint;
 typedef int GLint;
 typedef char GLchar;
@@ -35,7 +37,11 @@ extern GLuint OpenGLCompileShadersFromFile(const char* vertexShaderFilePath, con
 
 //#include <glm/glm.hpp>
 //#include <glm/ext.hpp>                  // glm::perspective(...), glm::value_ptr(...),etc.
+#ifndef USE_MINIMATH_H
 #include <math_helper.hpp>
+#else
+#include <minimath.h>
+#endif
 
 #include <vector>
 using std::vector;

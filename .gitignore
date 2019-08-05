@@ -57,6 +57,8 @@ reps/
 **/*.sh
 **/*.blend
 **/*.blend1
+*Makefile*
+**/*.qmake.stash
 
 tests/freeglut.dll
 tests/glut.dll
@@ -87,10 +89,9 @@ Sdf/
 fbtBlendUpdater/fbtBlendUpdater
 fbtBlendUpdater/test.blend
 fbtBlendUpdater/Blender.h
-fbtBlendUpdater/bftBlend.h
+fbtBlendUpdater/fbtBlend.h
 tests/testConsole
 tests/testGlut
-280/
 test_skeletal_animation/html
 test_skeletal_animation/glm
 32bit/
@@ -98,7 +99,10 @@ test_skeletal_animation/test_skeletal_animation
 !test_skeletal_animation/ManuelLab140_Test.blend
 !test_skeletal_animation/man4.blend
 test_skeletal_animation/Makefile
-
+280/tests/testConsole
+280/tests/testGlut
+test_skeletal_animation/minimath.h
+**/issues.txt
 
 
 

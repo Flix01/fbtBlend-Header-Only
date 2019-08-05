@@ -2580,8 +2580,7 @@ bool fbtFile::FileStartsWith(const char* path,const char* cmp) {
         if (f_size<=0 || (size_t)f_size < numCharsToMatch)    {fclose(f);return match;}
         if (fseek(f, 0, SEEK_SET))  {fclose(f);return match;}
         char buff[256]="";
-        fread(buff,numCharsToMatch,1,f);
-        if (strncmp(buff,cmp,numCharsToMatch)==0) match = true;
+        if (fread(buff,numCharsToMatch,1,f) && strncmp(buff,cmp,numCharsToMatch)==0) match = true;
         fclose(f);
     }
     return match;

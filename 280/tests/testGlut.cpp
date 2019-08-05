@@ -250,14 +250,14 @@ static bool GetMaterialFromBlender(const Blender::Material* ma,Material& mOut) {
     if (!ma) return false;
 
     // Colors ( not 100% sure about them )
-    mOut.amb[0]=ma->ambr * ma->amb;
-    mOut.amb[1]=ma->ambg * ma->amb;
-    mOut.amb[2]=ma->ambb * ma->amb;
+    mOut.amb[0]=0.4f;//ma->ambr * ma->amb;
+    mOut.amb[1]=0.4f;//ma->ambg * ma->amb;
+    mOut.amb[2]=0.4f;//ma->ambb * ma->amb;
     mOut.amb[3]=ma->alpha;
 
-    mOut.dif[0]=ma->r * ma->ref;
-    mOut.dif[1]=ma->g * ma->ref;
-    mOut.dif[2]=ma->b * ma->ref;
+    mOut.dif[0]=0.8f;//ma->r * ma->ref;
+    mOut.dif[1]=0.8f;//ma->g * ma->ref;
+    mOut.dif[2]=0.8f;//ma->b * ma->ref;
     mOut.dif[3]=ma->alpha;
 
     mOut.spe[0]=ma->specr * ma->spec;
@@ -272,12 +272,12 @@ static bool GetMaterialFromBlender(const Blender::Material* ma,Material& mOut) {
     #undef USE_ALTERNATIVE_SPECULAR_CONVERSION
     #endif //USE_ALTERNATIVE_SPECULAR_CONVERSION
 
-    mOut.emi[0]=ma->emit*ma->r;
-    mOut.emi[1]=ma->emit*ma->g;
-    mOut.emi[2]=ma->emit*ma->b;
+    mOut.emi[0]=0.f;//ma->emit*ma->r;
+    mOut.emi[1]=0.f;//ma->emit*ma->g;
+    mOut.emi[2]=0.f;//ma->emit*ma->b;
     mOut.emi[3]=ma->alpha;
 
-    mOut.shi = (GLfloat) (ma->har-1) /(510.0f);//*24.0f);   // No idea on how to rebase the ma->har value...
+    mOut.shi = 0.1f;//(GLfloat) (ma->har-1) /(510.0f);//*24.0f);   // No idea on how to rebase the ma->har value...
     //mOut.shi = (GLfloat) (512.0f-ma->har-1) /(510.0f);//*24.0f);   // No idea on how to rebase the ma->har value...
     //mOut.shi = sqrt(mOut.shi);
     //mOut.shi *= mOut.shi;   // This looks better... sometimes
@@ -396,15 +396,16 @@ static GLuint GetTextureFromBlender(const Blender::Image* im,const fbtString& bl
 static bool GetTextureFromBlender(const Blender::Material* parentMaterial,BlenderTexture& btexOut,const fbtString& blendModelParentFolder="",MyMap_UintPtr_GLuint* pPackedFileMap=NULL,MyMap_String_GLuint* pExternFileMap=NULL,BlenderTexture::Mapping mapping = BlenderTexture::MAP_COLOR,fbtString* pOptionalTextureFilePathOut=NULL) {
     if (pOptionalTextureFilePathOut) *pOptionalTextureFilePathOut = "";
     btexOut.reset();
-    if (!parentMaterial || !parentMaterial->mtex) return false;
+    if (!parentMaterial) return false;
+    Blender::MTex* const* mtexture = NULL;//parentMaterial->mtex;
+    if (!mtexture) return false;
 
-    Blender::MTex* const* mtexture = parentMaterial->mtex;
 
     const bool useLastValidTexture = true;  // Otherwise the first valid texture will be used (we don't blend multiple valid textures together
     int validTextureIndex = -1,i=-1;
     while (mtexture[++i] != 0)	{
         const Blender::MTex* mtex = mtexture[i];
-        if ((parentMaterial->septex&(i+1))) continue;   // This texture slot is unchecked
+        //if ((parentMaterial->septex&(i+1))) continue;   // This texture slot is unchecked
         // Here we match the texture mapping arg (e.g. BlenderTexture::MAP_COLOR), and the texture type (image texture):
         if (!mtex || (mtex->mapto&((short) mapping))==0 || !mtex->tex || mtex->tex->type!=8 || !mtex->tex->ima) continue;    // tex->type!=8 -> image texture
 
@@ -1503,7 +1504,7 @@ void InitGL(void) {
                     //if (strcmp(ob->id.name,"OBCube")==0)
                     //printf("Mesh:\"%s\": poly[%d]: flag=%u totloop=%d\n",me->id.name,i,poly.flag,poly.totloop);
                     const int numLoops = poly.totloop;
-                    const Blender::MTexPoly* mtp = (pBlenderTexture->id>0 && me->mtpoly && me->mloopuv) ? &me->mtpoly[i] : NULL;
+                    //const Blender::MTexPoly* mtp = (pBlenderTexture->id>0 && me->mtpoly && me->mloopuv) ? &me->mtpoly[i] : NULL;
 
                     {
                         // Is triangle or quad:
@@ -1532,7 +1533,7 @@ void InitGL(void) {
                             pTriFaceFlags->push_back(TriFaceInfo(poly.flag));
 
 
-                            if (mtp) {
+                            /*if (mtp) {
                                 hasTexCoords = true;
                                 const Blender::MLoopUV* uv = &me->mloopuv[li0];
                                 pBlenderTexture->transformTexCoords(uv->uv[0],uv->uv[1],tc.v);
@@ -1552,7 +1553,7 @@ void InitGL(void) {
                                 ic = vi2;
                                 if ( (ic2=AddTexCoord(ic,tc,meshVerts,numTexCoordAssignments,texCoordsSingleVertsVertsMultiMap))!=ic)
                                     (*pinds)[pinds->size()-1] = ic2;
-                            }
+                            }*/
 
                             // isQuad
                             if (numLoops==4)	{
@@ -1570,7 +1571,7 @@ void InitGL(void) {
                                 pTriFaceFlags->push_back(TriFaceInfo(poly.flag,1));
 
 
-                                if (mtp) {
+                                /*if (mtp) {
                                     hasTexCoords = true;
                                     const Blender::MLoopUV* uv = &me->mloopuv[li2];
                                     pBlenderTexture->transformTexCoords(uv->uv[0],uv->uv[1],tc.v);
@@ -1589,7 +1590,7 @@ void InitGL(void) {
                                     ic = vi0;
                                     if ( (ic2=AddTexCoord(ic,tc,meshVerts,numTexCoordAssignments,texCoordsSingleVertsVertsMultiMap))!=ic)
                                         (*pinds)[pinds->size()-1] = ic2;
-                                }
+                                }*/
                                 //--------------------------------------
                             }
 
@@ -1630,7 +1631,7 @@ void InitGL(void) {
                                 tfi.belongsToLastPoly = 1;
 
 
-                                if (mtp) {
+                                /*if (mtp) {
                                     hasTexCoords = true;
                                     const Blender::MLoopUV* uv = &me->mloopuv[li0];
                                     pBlenderTexture->transformTexCoords(uv->uv[0],uv->uv[1],tc.v);
@@ -1649,7 +1650,7 @@ void InitGL(void) {
                                     ic = vi2;
                                     if ( (ic2=AddTexCoord(ic,tc,meshVerts,numTexCoordAssignments,texCoordsSingleVertsVertsMultiMap))!=ic)
                                         (*pinds)[pinds->size()-1] = ic2;
-                                }
+                                }*/
                                 // -----------------------------------------------------------------------
 
                                 if (isQuad) {
@@ -1675,7 +1676,7 @@ void InitGL(void) {
                                     pTriFaceFlags->push_back(tfi);
 
 
-                                    if (mtp) {
+                                    /*if (mtp) {
                                         hasTexCoords = true;
                                         const Blender::MLoopUV* uv = &me->mloopuv[li0];
                                         pBlenderTexture->transformTexCoords(uv->uv[0],uv->uv[1],tc.v);
@@ -1694,7 +1695,7 @@ void InitGL(void) {
                                         ic = vi2;
                                         if ( (ic2=AddTexCoord(ic,tc,meshVerts,numTexCoordAssignments,texCoordsSingleVertsVertsMultiMap))!=ic)
                                             (*pinds)[pinds->size()-1] = ic2;
-                                    }
+                                    }*/
                                     // -----------------------------------------------------------------------
                                 }
 
@@ -2131,6 +2132,7 @@ void DrawGL(void)
 
     const float lightPos[4] = {lightDirection[0],lightDirection[1],lightDirection[2],0};
     glLightfv(GL_LIGHT0,GL_POSITION,lightPos);    // Important and often skipped: the ffp must recalculate internally light direction in eye space based on vMatrix [=> every frame]
+
 
     glPushMatrix();
     // Draw something here-------------
