@@ -65,6 +65,16 @@
 #include "fbtConfig.h"
 #endif
 
+// Workaround for people just defining FBT_USE_GZ_FILE, without setting it to 1
+#ifdef FBT_USE_GZ_FILE
+#   undef FBT_USE_GZ_FILE
+#   define FBT_USE_GZ_FILE 1
+#endif
+
+#include <string.h> //memcmp
+
+#include "Blender.h"	// THIS FILE DEPENDS ON THE BLENDER VERSION (TOGETHER WITH bfBlender.cpp THAT'S AT THE BOTTOM OF THIS FILE)
+
 // global config settings
 #ifndef fbtMaxTable
 #   define fbtMaxTable     5000        // Maximum number of elements in a table
@@ -79,20 +89,13 @@
 #   define fbtDefaultAlloc 2048        // Table default allocation size
 #endif
 #ifndef FBT_ARRAY_SLOTS
-#   define FBT_ARRAY_SLOTS         2   // Maximum dimensional array, eg: (int m_member[..][..] -> [FBT_ARRAY_SLOTS])
+#   if BLENDER_VERSION>279
+#       define FBT_ARRAY_SLOTS         3   // Maximum dimensional array, eg: (int m_member[..][..] -> [FBT_ARRAY_SLOTS])
+#   else
+#       define FBT_ARRAY_SLOTS         2   // Maximum dimensional array, eg: (int m_member[..][..] -> [FBT_ARRAY_SLOTS])
+#   endif
 #endif
 // global config settings end
-
-
-// Workaround for people just defining FBT_USE_GZ_FILE, without setting it to 1
-#ifdef FBT_USE_GZ_FILE
-#   undef FBT_USE_GZ_FILE
-#   define FBT_USE_GZ_FILE 1
-#endif
-
-#include <string.h> //memcmp
-
-#include "Blender.h"	// THIS FILE DEPENDS ON THE BLENDER VERSION (TOGETHER WITH bfBlender.cpp THAT'S AT THE BOTTOM OF THIS FILE)
 
 
 /** \addtogroup FBT
