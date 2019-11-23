@@ -26,6 +26,7 @@ void DeleteAllLoadedTextures() {
     texturePath2IdMap.clear();
 }
 
+GLuint Mesh::WhiteTextureId = 0;
 //---------------------------------------------------------------------------------
 
 
@@ -1810,8 +1811,9 @@ void Mesh::render(int meshPartIndex) const
 
         if (meshPart.visible && meshPart.batch)	{
             //if (meshPart.texture) meshPart.texture->bind();
-            //if (meshPart.textureId)
-                glBindTexture(GL_TEXTURE_2D,meshPart.textureId);
+            if (meshPart.textureId) glBindTexture(GL_TEXTURE_2D,meshPart.textureId);
+            else glBindTexture(GL_TEXTURE_2D,Mesh::WhiteTextureId);
+
 
         	//mesh.material ?
         	//void drawGL(bool autoBindAndUnbindBuffers,bool autoEnableDisableVertexArrayAttribs=true)
@@ -1848,8 +1850,8 @@ void Mesh::render(const OpenGLSkinningShaderData& p,int meshPartIndex,const vect
 
             //if (meshPart.texture) meshPart.texture->bind();
             textureId = numOfTextureOverrides>i ? ( (*pOptionalTextureOverrides)[i] && (*pOptionalTextureOverrides)[i]>0) : meshPart.textureId;
-            //if (textureId)
-            glBindTexture(GL_TEXTURE_2D,textureId);
+            if (textureId) glBindTexture(GL_TEXTURE_2D,textureId);
+            else glBindTexture(GL_TEXTURE_2D,Mesh::WhiteTextureId);
 
             glUniform4fv(p.material_ambientUnifLoc,1,&M.amb[0]);
             glUniform4fv(p.material_diffuseUnifLoc,1,&M.dif[0]);
@@ -2138,10 +2140,13 @@ void Mesh::softwareRender(int meshPartIndex, const MeshInstance &mi) const {
         const Vector3Array& norms = effectiveMeshPartFootprint.norms;
         const Vector2Array& texcoords = effectiveMeshPart.texcoords;
         const IndexArray& inds = meshPart.inds;
-        const GLuint textureId = (partIndex<numOfTextureOverrides && mi.textureOverrides[partIndex]!=0) ? mi.textureOverrides[partIndex] : meshPart.textureId;
+        GLuint textureId = (partIndex<numOfTextureOverrides && mi.textureOverrides[partIndex]!=0) ? mi.textureOverrides[partIndex] : meshPart.textureId;
         const Material& mat = (partIndex<numOfMaterialOverrides && mi.materialOverrides[partIndex]!=NULL) ? *mi.materialOverrides[partIndex] : meshPart.material;
 
-        if (textureId!=lastTextureId || partIndex==start) glBindTexture(GL_TEXTURE_2D,textureId);
+        if (textureId!=lastTextureId || partIndex==start) {
+            if (textureId) glBindTexture(GL_TEXTURE_2D,textureId);
+            else glBindTexture(GL_TEXTURE_2D,Mesh::WhiteTextureId);
+        }
         lastTextureId = textureId;const bool hasTexCoords = textureId!=0 && texcoords.size()>0;
         if (lastMaterial!=&mat) {
             const GLenum face = GL_FRONT;

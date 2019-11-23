@@ -290,6 +290,20 @@ void InitGL() {
 
 	gSkinningShaderData.init();
 
+    // Optional: manually create Mesh::WhiteTextureId to support non-textured animated meshes (in shaders)
+    if (!Mesh::WhiteTextureId)  {
+        const unsigned char wt[16]={255,255,255,255, 255,255,255,255, 255,255,255,255, 255,255,255,255};
+        glGenTextures(1,&Mesh::WhiteTextureId);
+        glBindTexture(GL_TEXTURE_2D,Mesh::WhiteTextureId);
+        glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+        glTexImage2D(GL_TEXTURE_2D, 0,(int) GL_RGBA, 2, 2, 0, GL_RGBA, GL_UNSIGNED_BYTE, wt);
+        glBindTexture(GL_TEXTURE_2D,0);
+    }
+
     // Lights:
     glLightSourceParams lightSourceParams(
                                           glm::vec3(0,-1,-1)  // minus = towards minus x (or y or z)
@@ -489,7 +503,8 @@ void DrawGL() {
 }
 
 void DestroyGL() {
-	gSkinningShaderData.destroy();
+    if (Mesh::WhiteTextureId) {glDeleteTextures(1,&Mesh::WhiteTextureId);Mesh::WhiteTextureId=0;}
+    gSkinningShaderData.destroy();
 }
 
 

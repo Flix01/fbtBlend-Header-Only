@@ -279,6 +279,8 @@ class Mesh	{
 	
     static shared_ptr < Mesh > Create(/*bool _uselocalTextureMapCollector=false*/);
 	
+    static GLuint WhiteTextureId;   /* user can create one and delete it himself to support non-textured animated meshes */
+
 	protected:
     Mesh(/*bool _uselocalTextureMapCollector=false*/);
 	public:
