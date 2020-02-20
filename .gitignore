@@ -103,10 +103,13 @@ test_skeletal_animation/Makefile
 280/tests/testGlut
 281/tests/testConsole
 281/tests/testGlut
+282/tests/testConsole
+282/tests/testGlut
 test_skeletal_animation/minimath.h
 **/issues.txt
 **/man_no_texture.blend
 test_skeletal_animation_software_skinning/
+test_character2c/
 
 
 
