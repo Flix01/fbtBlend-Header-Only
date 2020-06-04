@@ -105,6 +105,8 @@ test_skeletal_animation/Makefile
 281/tests/testGlut
 282/tests/testConsole
 282/tests/testGlut
+283_LTS/tests/testConsole
+283_LTS/tests/testGlut
 test_skeletal_animation/minimath.h
 **/issues.txt
 **/man_no_texture.blend

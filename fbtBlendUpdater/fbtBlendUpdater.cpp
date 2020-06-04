@@ -1,9 +1,9 @@
 
-// g++ -Os fbtBlendUpdater.cpp -o fbtBlendUpdater
+// g++ -Os -no-pie -fno-pie fbtBlendUpdater.cpp -o fbtBlendUpdater
 // or better:
-// g++ -Os fbtBlendUpdater.cpp -D"BLENDPARSER_USE_ZLIB" -o fbtBlendUpdater -lz
+// g++ -Os -no-pie -fno-pie fbtBlendUpdater.cpp -D"BLENDPARSER_USE_ZLIB" -o fbtBlendUpdater -lz
 
-// The first commandline can cause segmentation fault when loading a -blend compressed file.
+// The first commandline can cause segmentation fault when loading a .blend compressed file.
 
 //#define BLENDPARSER_USE_ZLIB
 
@@ -868,8 +868,8 @@ int main(int argc, const char* argv[]) {
 	}
 	else {
 		printf("USAGE:\n-> An old (amalgamated) version of \"fbtBlend.h\" must be present in \"../\"\n");
-		printf("-> A file named \"test.blend\" must be present in the same folder as th fbtBlendUpdater exacutable. It must have been saved using the desired version of Blender.\n");
-		printf("Now you can fire fbtBlendUpdater from its own folder, and it should output the two new files \"fbtBlend.h\" and \"Blender.h\" in its own folder two (leaving the old copies in \"../\" intact.\n\n");	
+                printf("-> A file named \"test.blend\" must be present in the same folder as the fbtBlendUpdater exacutable. It must have been saved using the desired version of Blender.\n");
+                printf("Now you can launch fbtBlendUpdater from its own folder, and it should output the two new files \"fbtBlend.h\" and \"Blender.h\" in its own folder (leaving the old copies in \"../\" intact.\n\n");
 	}
 	return ok ? 0 : 1;
 }

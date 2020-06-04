@@ -21,12 +21,12 @@ A third demo is present in the subfolder **test_skeletal_animation** (build inst
 * glut (or freeglut)
 * glew (Windows only)
 
-## Blender 2.80, 2.81 and 2.82 versions
+## Blender 2.80, 2.81, 2.82 and 2.83 LTS versions
 
-In the *280*, *281* and *282* repository folders there are versions of **fbtBlend.h** and **Blender.h** updated for Blender 2.80, 2.81 and 2.82.
-In the *280/tests*, *281/tests* and *282/tests* subfolders there are versions of **testConsole.cpp** and **testGlut.cpp** that should compile correctly with these versions.
-Please note that **280/tests/testGlut.cpp**, **281/tests/testGlut.cpp** and **282/tests/testGlut.cpp** are the same as the 2.79 version, except that all materials have been stripped, because Blender>=2.80 doesn't support "Blender Internal" materials anymore.
-Of course I'll **NEVER** make a version that can display physic-based materials... be warned!
+In the *280*, *281*, *282* and *283_LTS* repository folders there are versions of **fbtBlend.h** and **Blender.h** updated for Blender 2.80, 2.81, 2.82 and Blender 2.83 LTS.
+In the *280/tests*, *281/tests*, *282/tests* and *283_LTS/tests* subfolders there are versions of **testConsole.cpp** and **testGlut.cpp** that should compile correctly with these versions.
+Please note that **280/tests/testGlut.cpp**, **281/tests/testGlut.cpp**, **282/tests/testGlut.cpp** and **283_LTS/tests/testGlut.cpp** are the same as the 2.79 version, except that all materials have been stripped, because Blender>=2.80 doesn't support "Blender Internal" materials anymore.
+Of course I'll **NEVER** make a version that can display physics-based materials... be warned!
 
 ## Screenshots
 ![testGlut](./screenshots/testGlut.png)
