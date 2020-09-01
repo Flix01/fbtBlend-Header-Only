@@ -2345,7 +2345,7 @@ void GlutCreateWindow() {
     GlutDestroyWindow();
 #   ifndef __EMSCRIPTEN__
     if (config.fullscreen_enabled)	{
-        char gms[16]="";
+        char gms[32]="";
         if (config.fullscreen_width>0 && config.fullscreen_height>0)	{
             sprintf(gms,"%dx%d:32",config.fullscreen_width,config.fullscreen_height);
             glutGameModeString(gms);
