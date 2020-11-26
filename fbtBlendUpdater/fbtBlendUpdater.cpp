@@ -401,7 +401,12 @@ struct BlendDNA1Block {
 	        fprintf(f,"// This has some effect on _MSC_VER only AFAIK\n#ifdef near\n#undef near\n#endif\n#ifdef far\n#undef far\n#endif\n#ifdef rad2\n#undef rad2\n#endif\n\n");
 
             fprintf(f,"#ifdef __cplusplus\n");
-            if (namespaceName && strlen(namespaceName)>0)fprintf(f,"namespace %s\t{\n",namespaceName);
+            //--- uchar fix in C++ ---
+            fprintf(f,"#\tifndef uchar\n");
+            fprintf(f,"\ttypedef unsigned char uchar;\n");	// unluckily in plain c we can't repeat the same typedef twice...
+            fprintf(f,"#\tendif\n");
+            //------------------------            
+            if (namespaceName && strlen(namespaceName)>0)fprintf(f,"namespace %s\t{\n",namespaceName);            
             fprintf(f,"extern \"C\"\t{\n");
             fprintf(f,"#endif // __cplusplus\n\n\n");
 

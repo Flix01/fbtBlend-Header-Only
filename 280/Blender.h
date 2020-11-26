@@ -18,6 +18,9 @@
 #endif
 
 #ifdef __cplusplus
+#	ifndef uchar
+	typedef unsigned char uchar;
+#	endif
 namespace Blender	{
 extern "C"	{
 #endif // __cplusplus
