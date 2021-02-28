@@ -21,7 +21,7 @@ A third demo is present in the subfolder **test_skeletal_animation** (build inst
 * glut (or freeglut)
 * glew (Windows only)
 
-## Blender 2.80, 2.81, 2.82, 2.83_LTS, 2.90 and 2.91 versions
+## Blender 2.80, 2.81, 2.82, 2.83_LTS, 2.90, 2.91 and 2.92 versions
 
 In the *280*, *281*, *282*, *283_LTS*, *290*, *291* and *292* repository folders there are versions of **fbtBlend.h** and **Blender.h** updated for Blender 2.80, 2.81, 2.82, 2.83_LTS 290, 291 and Blender 292.
 In the *280/tests*, *281/tests*, *282/tests*, *283_LTS/tests*, *290/tests*, *291/tests* and *292/tests* subfolders there are versions of **testConsole.cpp** and **testGlut.cpp** that should compile correctly with these versions.
