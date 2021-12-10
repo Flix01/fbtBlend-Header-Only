@@ -2238,37 +2238,6 @@ protected:
 };
 #endif
 
-#if FBT_USE_ZSTD_FILE == 1
-class fbtZstdStream : public fbtStream
-{
-public:
-	fbtZstdStream();
-	~fbtZstdStream();
-
-	void open(const char* path, fbtStream::StreamMode mode);
-	void close(void);
-
-	bool isOpen(void)   const {return m_handle != 0;}
-	bool eof(void)      const;
-
-	FBTsize  read(void* dest, FBTsize nr) const;
-	FBTsize  write(const void* src, FBTsize nr);
-	FBTsize  writef(const char* buf, ...);
-
-
-	FBTsize  position(void) const;
-	FBTsize size(void) const;
-
-	// watch it no size / seek
-
-protected:
-
-
-	fbtFixedString<272> m_file;
-	fbtFileHandle       m_handle;
-	int                 m_mode;
-};
-#endif
 
 class fbtMemoryStream : public fbtStream
 {
