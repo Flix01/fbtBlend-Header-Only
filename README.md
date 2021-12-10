@@ -12,20 +12,22 @@ Two demos are available: **testConsole.cpp** and **testGlut.cpp** (they contain 
 
 A third demo is present in the subfolder **test_skeletal_animation** (build instructions are at the top of **test_skeletal_animation/main.cpp**).
 
-## Dependencies
+## Dependencies (recommended, to load compressed .blend files)
 
-* zlib (optional but recommended, to load compressed .blend files)
+* zlib (for Blender versions <  300)
+* libzstd (for Blender versions >= 300)
+
 
 **testGlut.cpp and test_skeletal_animation need:**
 
 * glut (or freeglut)
 * glew (Windows only)
 
-## Blender 2.80, 2.81, 2.82, 2.83_LTS, 2.90, 2.91, 2.92 and 2.93_LTS versions
+## Blender 2.80, 2.81, 2.82, 2.83_LTS, 2.90, 2.91, 2.92, 2.93_LTS and 3.00 versions
 
-In the *280*, *281*, *282*, *283_LTS*, *290*, *291*, *292* and *293_LTS* repository folders there are versions of **fbtBlend.h** and **Blender.h** updated for Blender 2.80, 2.81, 2.82, 2.83_LTS 290, 291, 292 and Blender 293_LTS.
-In the *280/tests*, *281/tests*, *282/tests*, *283_LTS/tests*, *290/tests*, *291/tests*, *292/tests* and *293_LTS/tests* subfolders there are versions of **testConsole.cpp** and **testGlut.cpp** that should compile correctly with these versions.
-Please note that **280/tests/testGlut.cpp**, **281/tests/testGlut.cpp**, **282/tests/testGlut.cpp**, **283_LTS/tests/testGlut.cpp**, **290/tests/testGlut.cpp**, **291/tests/testGlut.cpp**, **292/tests/testGlut.cpp** and **293_LTS/tests/testGlut.cpp** are the same as the 2.79 version, except that all materials have been stripped, because Blender>=2.80 doesn't support "Blender Internal" materials anymore.
+In the *280*, *281*, *282*, *283_LTS*, *290*, *291*, *292*, *293_LTS* and *300* repository folders there are versions of **fbtBlend.h** and **Blender.h** updated for Blender 2.80, 2.81, 2.82, 2.83_LTS 290, 291, 292, 293_LTS and Blender 300.
+In the *280/tests*, *281/tests*, *282/tests*, *283_LTS/tests*, *290/tests*, *291/tests*, *292/tests*, *293_LTS/tests* and *300/tests* subfolders there are versions of **testConsole.cpp** and **testGlut.cpp** that should compile correctly with these versions.
+Please note that **280/tests/testGlut.cpp**, **281/tests/testGlut.cpp**, **282/tests/testGlut.cpp**, **283_LTS/tests/testGlut.cpp**, **290/tests/testGlut.cpp**, **291/tests/testGlut.cpp**, **292/tests/testGlut.cpp**, **293_LTS/tests/testGlut.cpp** and  **300/tests/testGlut.cpp** are the same as the 2.79 version, except that all materials have been stripped, because Blender>=2.80 doesn't support "Blender Internal" materials anymore.
 Of course I'll **NEVER** make a version that can display physics-based materials... be warned!
 
 ## Screenshots

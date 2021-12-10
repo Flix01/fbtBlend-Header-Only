@@ -43,6 +43,9 @@
      -> Added a public static helper method fbtFile::UTF8_fopen(...) (used internally to to allow UTF8 char paths on Windows).
      -> Minor changes made to class fbtArray<...> and its iterator (but code is still backward-compatible).
      -> Added class fbtString (not used here), as a replacement for std::string.
+
+     -> Added support for zstd decompression through #define FBT_USE_ZSTD (it needs linking to -lzstd).
+     -> Updated the "ID enums" (please search: [DNA_ID_enums 1/2] and [DNA_ID_enums 2/2]).
 */
 #ifndef _fbtBlend_h_
 #define _fbtBlend_h_
@@ -57,7 +60,8 @@
 
 #ifndef FBT_HAVE_CONFIG
 // global config settings
-//#define FBT_USE_GZ_FILE 1           // Adds support to PM_COMPRESSED .blend files (needs linking to zlib: -lz)
+//#define FBT_USE_GZ_FILE 1           // Adds support to PM_COMPRESSED .blend < 3.00 files (needs linking to zlib: -lz)
+//#define FBT_USE_ZSTD_FILE 1         // Adds support to PM_COMPRESSED .blend 3.00 files (needs linking to zlib: -lzstd)
 #define fbtDEBUG        1           // Traceback detail
 //#define FBT_TYPE_LEN_VALIDATE   1   // Write a validation file (use MakeFBT.cmake->ADD_FBT_VALIDATOR to add a self validating build)
 // global config settings end
@@ -69,6 +73,11 @@
 #ifdef FBT_USE_GZ_FILE
 #   undef FBT_USE_GZ_FILE
 #   define FBT_USE_GZ_FILE 1
+#endif
+// Workaround for people just defining FBT_USE_ZSTD_FILE, without setting it to 1
+#ifdef FBT_USE_ZSTD_FILE
+#   undef FBT_USE_ZSTD_FILE
+#   define FBT_USE_ZSTD_FILE 1
 #endif
 
 #include <string.h> //memcmp
@@ -1971,6 +1980,7 @@ public:
 
     // General Programming Staic Helper Methods:
     static FILE* UTF8_fopen(const char* filename, const char* mode);    // Used to allow UTF8 chars on Windows
+    static unsigned char* FBT_GetFileContent(const char *filePath,unsigned long* pSizeOut=NULL,const char modes[] = "rb");  // Returns a memory buffer (that user must free using: delete[] mybuffname;) with the content of 'filePath'.
 
 
 protected:
@@ -2032,35 +2042,49 @@ public:
 	fbtBlend();
 	virtual ~fbtBlend();
 
-
+    // Warning: these fields are NOT updated automatically, but must be MANUALLY integrated (to reflect the content of source/blender/makesdna/DNA_ID_enums.h)
+    // It should be OK to use "integrated versions" also for older versions (newer fields are not present in their Blender DNA, and this should be OK). [DNA_ID_enums 1/2]
 	fbtList m_scene;
 	fbtList m_library;
 	fbtList m_object;
 	fbtList m_mesh;
 	fbtList m_curve;
-	fbtList m_mball;
-	fbtList m_mat;
-	fbtList m_tex;
+	fbtList m_mball;    // MataBall
+	fbtList m_mat;      // Material
+	fbtList m_tex;      // Texture
 	fbtList m_image;
-	fbtList m_latt;
+	fbtList m_latt;     // Lattice
 	fbtList m_lamp;
 	fbtList m_camera;
-	fbtList m_ipo;
-	fbtList m_key;
+	fbtList m_ipo;      // or FCurves
+	fbtList m_key;      // ShapeKey
 	fbtList m_world;
 	fbtList m_screen;
-	fbtList m_script;
-	fbtList m_vfont;
+	fbtList m_script;   // Python   (used in older versions)
+	fbtList m_vfont;    // VectorFont
 	fbtList m_text;
+	fbtList m_speaker;
 	fbtList m_sound;
-	fbtList m_group;
+	fbtList m_group;    // Group/Collection
 	fbtList m_armature;
 	fbtList m_action;
 	fbtList m_nodetree;
 	fbtList m_brush;
-	fbtList m_particle;
-	fbtList m_wm;
-	fbtList m_gpencil;
+	fbtList m_particle; // ParticleSettings
+	fbtList m_wm;       // WindowManager
+	fbtList m_gpencil;	
+	fbtList m_movieClip;
+	fbtList m_mask;
+	fbtList m_freeStyleLineStyle;
+	fbtList m_palette;
+    fbtList m_paintCurve;
+	fbtList m_cacheFile;
+	fbtList m_workSpace;
+	fbtList m_lightProbe;
+	fbtList m_hair;
+	fbtList m_pointCloud;
+	fbtList m_volume;
+	fbtList m_simulation;// GeometryNodeGroups
 
 	Blender::FileGlobal* m_fg;
 
@@ -2183,7 +2207,6 @@ protected:
 
 
 #if FBT_USE_GZ_FILE == 1
-
 class fbtGzStream : public fbtStream
 {
 public:
@@ -2213,10 +2236,39 @@ protected:
 	fbtFileHandle       m_handle;
 	int                 m_mode;
 };
-
-
 #endif
 
+#if FBT_USE_ZSTD_FILE == 1
+class fbtZstdStream : public fbtStream
+{
+public:
+	fbtZstdStream();
+	~fbtZstdStream();
+
+	void open(const char* path, fbtStream::StreamMode mode);
+	void close(void);
+
+	bool isOpen(void)   const {return m_handle != 0;}
+	bool eof(void)      const;
+
+	FBTsize  read(void* dest, FBTsize nr) const;
+	FBTsize  write(const void* src, FBTsize nr);
+	FBTsize  writef(const char* buf, ...);
+
+
+	FBTsize  position(void) const;
+	FBTsize size(void) const;
+
+	// watch it no size / seek
+
+protected:
+
+
+	fbtFixedString<272> m_file;
+	fbtFileHandle       m_handle;
+	int                 m_mode;
+};
+#endif
 
 class fbtMemoryStream : public fbtStream
 {
@@ -2243,6 +2295,9 @@ public:
 #if FBT_USE_GZ_FILE == 1
 	bool gzipInflate( char* inBuf, int inSize);
 #endif
+#if FBT_USE_ZSTD_FILE == 1
+	bool zstdInflate( char* inBuf, int inSize);
+#endif
 	void*            ptr(void)          {return m_buffer;}
 	const void*      ptr(void) const    {return m_buffer;}
 
@@ -2250,6 +2305,7 @@ public:
 
 
 	void reserve(FBTsize nr);
+	void shrinkToFit(void);
 protected:
 	friend class fbtFileStream;
 
@@ -2614,6 +2670,26 @@ FILE* fbtFile::UTF8_fopen(const char* filename, const char* mode)   {
 #	endif
 }
 
+unsigned char* fbtFile::FBT_GetFileContent(const char *filePath,unsigned long* pSizeOut,const char modes[])   {
+    unsigned char* ptr = NULL;
+    if (pSizeOut) *pSizeOut=0;
+    if (!filePath) return ptr;
+    FILE* f;
+    if ((f = fbtFile::UTF8_fopen(filePath, modes)) == NULL) return ptr;
+    if (fseek(f, 0, SEEK_END))  {fclose(f);return ptr;}
+    const long f_size_signed = ftell(f);
+    if (f_size_signed == -1)    {fclose(f);return ptr;}
+    size_t f_size = (size_t)f_size_signed;
+    if (fseek(f, 0, SEEK_SET))  {fclose(f);return ptr;}
+    ptr = new unsigned char[f_size];
+    if (!ptr) return ptr;
+    const size_t f_size_read = f_size>0 ? fread((unsigned char*)ptr, 1, f_size, f) : 0;
+    fclose(f);
+    if (f_size_read == 0 || f_size_read!=f_size)    {delete[] (ptr);ptr=NULL;}
+    else if (pSizeOut) *pSizeOut=f_size;
+    return ptr;
+}
+
 int fbtFile::parse(const char* path,const char* uncompressedFileDetectorPrefix)    {
     return parse(path,FileStartsWith(path,uncompressedFileDetectorPrefix) ? PM_UNCOMPRESSED : PM_COMPRESSED);
 }
@@ -2622,17 +2698,36 @@ int fbtFile::parse(const char* path, int mode)
 {
 	fbtStream* stream = 0;
 
+#   if ((FBT_USE_ZSTD_FILE==1) && (BLENDER_VERSION>=300))
+    if (mode==PM_COMPRESSED)    {
+        unsigned long memorySize = 0;
+        unsigned char* memory = fbtFile::FBT_GetFileContent(path,&memorySize,"rb");
+        int rv = FS_FAILED;
+        if (memory) {
+            rv = parse((const void*) memory, memorySize, mode, /*bool suppressHeaderWarning*/false);
+            delete[] (memory);memory=NULL;memorySize=0;
+        }
+        if (rv==FS_OK) return rv;
+        else {
+            fbtPrintf("Warning: fbtFile::parse(\"%s\" has failed with error code %d, when using the zstd decoder.",path,rv);
+#           if FBT_USE_GZ_FILE == 1
+            fbtPrintf("Trying with the gzip decoder now.");
+#           endif
+        }
+    }
+#   endif //((FBT_USE_ZSTD_FILE==1) && (BLENDER_VERSION>=300))
+
 	if (mode == PM_UNCOMPRESSED || mode == PM_COMPRESSED)
 	{
-#if FBT_USE_GZ_FILE == 1
-		if (mode == PM_COMPRESSED)
-			stream = new fbtGzStream();
+#   if FBT_USE_GZ_FILE == 1
+		if (mode == PM_COMPRESSED)  {
+            stream = new fbtGzStream();
+	    }
 		else
-#endif
+#   endif  // FBT_USE_GZ_FILE == 1
 		{
 			stream = new fbtFileStream();
 		}
-
 		stream->open(path, fbtStream::SM_READ);
 	}
 	else
@@ -3587,6 +3682,9 @@ int fbtChunk::read(fbtFile::Chunk* dest, fbtStream* stream, int flags)
 #include "zconf.h"
 #endif
 
+#if FBT_USE_ZSTD_FILE == 1
+#include "zstd.h"
+#endif
 
 fbtFileStream::fbtFileStream() 
 	:    m_file(), m_handle(0), m_mode(0), m_size(0)
@@ -3730,7 +3828,6 @@ FBTsize fbtFileStream::writef(const char* fmt, ...)
 
 #if FBT_USE_GZ_FILE == 1
 
-
 fbtGzStream::fbtGzStream() 
 	:    m_file(), m_handle(0), m_mode(0)
 {
@@ -3829,9 +3926,7 @@ FBTsize fbtGzStream::writef(const char* fmt, ...)
 
 }
 
-#endif
-
-
+#endif // FBT_USE_GZ_FILE
 
 
 fbtMemoryStream::fbtMemoryStream()
@@ -3881,9 +3976,22 @@ void fbtMemoryStream::open(const void* buffer, FBTsize size, fbtStream::StreamMo
 
 		} else
 		{
-#if FBT_USE_GZ_FILE == 1
-            /*bool result =*/ gzipInflate((char*)buffer,size);
-#endif
+		    bool result = false;
+#           if BLENDER_VERSION >= 300
+#               if FBT_USE_ZSTD_FILE == 1
+                if (!result) result = zstdInflate((char*)buffer,size);
+#               endif
+#               if FBT_USE_GZ_FILE == 1
+                if (!result) result = gzipInflate((char*)buffer,size);
+#               endif
+#           else //BLENDER_VERSION    		    
+#               if FBT_USE_GZ_FILE == 1
+                if (!result) result = gzipInflate((char*)buffer,size);
+#               endif
+#               if FBT_USE_ZSTD_FILE == 1
+                if (!result) result = zstdInflate((char*)buffer,size);
+#               endif
+#           endif //BLENDER_VERSION
 		}
 
 	}
@@ -3893,17 +4001,12 @@ void fbtMemoryStream::open(const void* buffer, FBTsize size, fbtStream::StreamMo
 // this method was adapted from this snippet:
 // http://windrealm.org/tutorials/decompress-gzip-stream.php
 bool fbtMemoryStream::gzipInflate( char* inBuf, int inSize) {
-  if ( inSize == 0 ) {
-	   m_buffer = inBuf ;
-    return true ;
-  }
-
+  // 'inBuf' is the whole compressed stream, of compressed size 'inSize'
   if (m_buffer)
 	  delete [] m_buffer;
+  m_size = m_capacity = 0;
 
-
-  m_size = inSize ;
-  m_buffer = (char*) calloc( sizeof(char), m_size );
+  reserve(m_capacity+inSize);
 
   z_stream strm;
   strm.next_in = (Bytef *) inBuf;
@@ -3912,7 +4015,7 @@ bool fbtMemoryStream::gzipInflate( char* inBuf, int inSize) {
   strm.zalloc = Z_NULL;
   strm.zfree = Z_NULL;
 
-  bool done = false ;
+  bool done = false;
 
   if (inflateInit2(&strm, (16+MAX_WBITS)) != Z_OK) {
     free( m_buffer );
@@ -3921,17 +4024,13 @@ bool fbtMemoryStream::gzipInflate( char* inBuf, int inSize) {
 
   while (!done) {
     // If our output buffer is too small
-    if (strm.total_out >= m_size ) {
+    if (strm.total_out >= m_capacity ) {
       // Increase size of output buffer
-      char* uncomp2 = (char*) calloc( sizeof(char), m_size + (inSize / 2) );
-      memcpy( uncomp2, m_buffer, m_size );
-      m_size += inSize / 2 ;
-      free( m_buffer );
-      m_buffer = uncomp2 ;
+      reserve(m_capacity+(inSize/2));
     }
 
     strm.next_out = (Bytef *) (m_buffer + strm.total_out);
-    strm.avail_out = m_size - strm.total_out;
+    strm.avail_out = m_capacity - strm.total_out;
 
     // Inflate another chunk.
     int err = inflate (&strm, Z_SYNC_FLUSH);
@@ -3942,13 +4041,104 @@ bool fbtMemoryStream::gzipInflate( char* inBuf, int inSize) {
   }
 
   if (inflateEnd (&strm) != Z_OK) {
-    free( m_buffer );
+    if (m_buffer)   delete [] m_buffer;
+    m_size = m_capacity = 0;
     return false;
   }
+  else {
+    m_size = strm.total_out;
+    shrinkToFit();
+    done = true;
+  }
 
-  return done ;
+  return done;
 }
 #endif
+
+#if FBT_USE_ZSTD_FILE == 1
+bool fbtMemoryStream::zstdInflate(char* inBuf, int inSize) {
+    // 'inBuf' is the whole compressed stream, of compressed size 'inSize'  
+    if ( inSize == 0 ) {
+          m_buffer = inBuf;
+          return true;
+    }
+    if (m_buffer)	  delete [] m_buffer;
+    m_size = m_capacity = 0;
+    
+    const unsigned char* memoryBuffer = (const unsigned char*) inBuf;
+    const size_t memoryBufferSize = (size_t) inSize;
+  
+    // FIll m_size, m_capacity and m_buffer from memoryBuffer and memoryBufferSize.
+  
+    ZSTD_DCtx* dctx = ZSTD_createDCtx();
+    const size_t capacityStepMultiplier = 4;   
+    
+    // input buffer
+    const size_t minInputSizeStep = ZSTD_DStreamInSize();
+    const size_t inputSizeStep = minInputSizeStep*capacityStepMultiplier;
+    ZSTD_inBuffer input = { memoryBuffer, 0, 0 };
+    input.size = inputSizeStep<=memoryBufferSize?inputSizeStep:memoryBufferSize;
+    
+    // output buffer
+    const size_t minOutputCapacityStep = ZSTD_DStreamOutSize();
+    const size_t outputCapacityStep = minOutputCapacityStep*capacityStepMultiplier;
+    reserve(memoryBufferSize*3);   // initial capacity
+    ZSTD_outBuffer output = {m_buffer, m_capacity, 0 };
+    
+    size_t lastRet = 0;
+    int failure = 0;
+    
+    //size_t last_input_pos = 1;    // optional loop lock prevention [line 1/3]
+    //size_t num_reallocs = 0, num_decompression_calls = 0;   // optional debug [line 1/4]
+    while (input.pos < memoryBufferSize) {
+        //if (lastRet==0 && last_input_pos==input.pos) break;    // optional loop lock prevention [line 2/3]
+        if (input.size<memoryBufferSize && input.size-input.pos<minInputSizeStep)    {
+            input.size+=inputSizeStep;
+            if (input.size>memoryBufferSize) input.size=memoryBufferSize;
+        }
+        size_t const ret = ZSTD_decompressStream(dctx, &output , &input);
+        //++num_decompression_calls;   // optional debug [line 2/4]
+        if (ZSTD_isError(ret))    {
+            fbtPrintf("ZSTD_decompressStream(...) Error: %s\n",ZSTD_getErrorName(ret));
+            failure = 1;break;
+        }
+        else {
+            m_size=output.pos;
+            if (input.pos < input.size) {
+                if (output.size-output.pos<=outputCapacityStep)    {
+                    reserve(m_capacity+minOutputCapacityStep+m_capacity/4);     // grow strategy               
+                    //++num_reallocs;   // optional debug [line 3/4]
+                    output.dst=m_buffer;output.size=m_capacity; // output.pos unchanged           
+                }
+            }
+                
+            //fbtPrintf("output: %zu/%zu. input: %zu/%zu.\n",output.pos,output.size,input.pos,input.size);
+        }    
+        lastRet = ret;
+    }
+  
+    //fbtPrintf("num_reallocs: %zu. num_decompression_calls: %zu.\n",num_reallocs,num_decompression_calls);   // optional debug [line 4/4]
+        
+
+    if (lastRet != 0) {
+        /* The last return value from ZSTD_decompressStream did not end on a
+         * frame, but we reached the end of the file! We assume this is an
+         * error, and the input was truncated.
+         */
+        fbtPrintf("ZSTD_decompressStream(...) Error: EOF before end of stream: %zu\n", lastRet);
+        failure = 1;
+    }  
+    if (failure) {
+      if (m_buffer) delete [] m_buffer;
+      m_size = m_capacity = 0;    
+    }          
+    else shrinkToFit();
+    
+    ZSTD_freeDCtx(dctx);dctx=NULL;  
+    return !failure;
+}
+#endif
+
 
 fbtMemoryStream::~fbtMemoryStream()
 {
@@ -4056,6 +4246,22 @@ void fbtMemoryStream::reserve(FBTsize nr)
 		m_buffer = buf;
 		m_buffer[m_size] = 0;
 		m_capacity = nr;
+	}
+}
+void fbtMemoryStream::shrinkToFit()
+{
+	if (m_capacity > m_size+1)
+	{
+		char* buf = new char[m_size + 1];
+		if (m_buffer != 0)
+		{
+			fbtMemcpy(buf, m_buffer, m_size);
+			delete [] m_buffer;
+		}
+
+		m_buffer = buf;
+		m_buffer[m_size] = 0;
+		m_capacity = m_size;
 	}
 } 
 
@@ -4180,7 +4386,7 @@ bool fbtBinTables::read(const void* ptr, const FBTsize& /*len*/, bool swap)
 	i = 0;
 	while (i < nl && i < fbtMaxTable)
 	{
-        fbtName name = {cp,(int) i, fbtCharHashKey(cp).hash(), 0, 0, 0, 1, 0};
+        fbtName name = {cp,(int) i, fbtCharHashKey(cp).hash(), 0, 0, 0, 1, {0}};
 
 		fbtFixedString<64> bn;
 
@@ -4409,7 +4615,7 @@ void fbtBinTables::compile(FBTtype i, FBTtype nr, fbtStruct* off, FBTuint32& cof
 		{
 			if (strc[0] >= f && m_name[strc[1]].m_ptrCount == 0)
 			{
-				fbtKey64 k = {m_type[strc[0]].m_typeId, m_name[strc[1]].m_nameId};
+                fbtKey64 k = {{m_type[strc[0]].m_typeId, m_name[strc[1]].m_nameId}};
 				keys.push_back(k);
 
 				compile(m_type[strc[0]].m_strcId, m_name[strc[1]].m_arraySize, off, cof, depth+1, keys);
@@ -4476,7 +4682,7 @@ void fbtBinTables::compile(void)
 			if (strc[0] >= f && m_name[strc[1]].m_ptrCount == 0) //strc[0]:member_type, strc[1]:member_name
 			{
 				fbtStruct::Keys keys;
-				fbtKey64 k = {m_type[strc[0]].m_typeId, m_name[strc[1]].m_nameId};
+                fbtKey64 k = {{m_type[strc[0]].m_typeId, m_name[strc[1]].m_nameId}};
 				keys.push_back(k);
 				compile(m_type[strc[0]].m_strcId, m_name[strc[1]].m_arraySize, off, cof, depth+1, keys);				
 			}
@@ -4743,6 +4949,8 @@ struct fbtIdDB
 	fbtList             fbtBlend::*m_ptr;
 };
 
+// Warning: these globals are NOT updated automatically, but must be MANUALLY integrated (to reflect the content of source/blender/makesdna/DNA_ID_enums.h)
+// It should be OK to use "integrated versions" also for older versions (newer fields are not present in their Blender DNA, and this should be OK). [DNA_ID_enums 2/2]
 fbtIdDB fbtData[] =
 {
 	{ FBT_ID2('S', 'C'), &fbtBlend::m_scene},
@@ -4764,7 +4972,8 @@ fbtIdDB fbtData[] =
 	{ FBT_ID2('P', 'Y'), &fbtBlend::m_script },
 	{ FBT_ID2('V', 'F'), &fbtBlend::m_vfont },
 	{ FBT_ID2('T', 'X'), &fbtBlend::m_text },
-	{ FBT_ID2('S', 'O'), &fbtBlend::m_sound },
+	{ FBT_ID2('S', 'K'), &fbtBlend::m_speaker },
+	{ FBT_ID2('S', 'O'), &fbtBlend::m_sound },	
 	{ FBT_ID2('G', 'R'), &fbtBlend::m_group },
 	{ FBT_ID2('A', 'R'), &fbtBlend::m_armature },
 	{ FBT_ID2('A', 'C'), &fbtBlend::m_action },
@@ -4772,7 +4981,19 @@ fbtIdDB fbtData[] =
 	{ FBT_ID2('B', 'R'), &fbtBlend::m_brush },
 	{ FBT_ID2('P', 'A'), &fbtBlend::m_particle },
 	{ FBT_ID2('G', 'D'), &fbtBlend::m_gpencil },
-	{ FBT_ID2('W', 'M'), &fbtBlend::m_wm },
+	{ FBT_ID2('W', 'M'), &fbtBlend::m_wm },	
+	{ FBT_ID2('M', 'C'), &fbtBlend::m_movieClip },	
+	{ FBT_ID2('M', 'S'), &fbtBlend::m_mask },	
+	{ FBT_ID2('L', 'S'), &fbtBlend::m_freeStyleLineStyle },	
+	{ FBT_ID2('P', 'L'), &fbtBlend::m_palette },	
+	{ FBT_ID2('P', 'C'), &fbtBlend::m_paintCurve },	
+	{ FBT_ID2('C', 'F'), &fbtBlend::m_cacheFile },	
+	{ FBT_ID2('W', 'S'), &fbtBlend::m_workSpace },	
+	{ FBT_ID2('L', 'P'), &fbtBlend::m_lightProbe },	
+	{ FBT_ID2('H', 'A'), &fbtBlend::m_hair },	
+	{ FBT_ID2('P', 'T'), &fbtBlend::m_pointCloud },	
+	{ FBT_ID2('V', 'O'), &fbtBlend::m_volume },	
+	{ FBT_ID2('S', 'I'), &fbtBlend::m_simulation },		
 	{ 0, 0 }
 };
 

@@ -1,7 +1,7 @@
 
 // g++ -Os -no-pie -fno-pie fbtBlendUpdater.cpp -o fbtBlendUpdater
 // or better:
-// g++ -Os -no-pie -fno-pie fbtBlendUpdater.cpp -D"BLENDPARSER_USE_ZLIB" -o fbtBlendUpdater -lz
+// g++ -Os -no-pie -fno-pie fbtBlendUpdater.cpp -D"BLENDPARSER_USE_ZLIB" -D"BLENDPARSER_USE_ZSTD" -o fbtBlendUpdater -lz -lzstd
 
 // The first commandline can cause segmentation fault when loading a .blend compressed file.
 
@@ -21,6 +21,8 @@
 //#include <stdlib.h> // free
 #define BLENDPARSER_FREE(X) free(X)
 #endif
+
+#include <assert.h>
 
 class BlendFile {
 public:
@@ -84,6 +86,10 @@ bool parseDNA1Block(const unsigned char* pDNA1,unsigned int dna1BlockDataSize);
 #include <zlib.h>
 #endif
 
+#ifdef BLENDPARSER_USE_ZSTD
+#include <zstd.h>
+#endif
+
 // We call C++ constructor on own allocated memory via the placement "new(ptr) Type()" syntax.
 // Defining a custom placement new() with a dummy parameter allows us to bypass including <new> which on some platforms complains when user has disabled exceptions.
 struct BlendParserPlacementNewDummy {};
@@ -132,6 +138,144 @@ unsigned char* GzDecompressFromMemory(const unsigned char* memoryBuffer,int memo
     else {BLENDPARSER_FREE(ptr);ptr=NULL;}
     if (pSizeOut) *pSizeOut=ptrSize;
 
+    return ptr;
+}
+#endif //BLENDPARSER_USE_ZLIB
+
+#ifdef BLENDPARSER_USE_ZSTD
+unsigned char* ZstdDecompressFromMemory(const unsigned char* memoryBuffer,int memoryBufferSz,unsigned long* pSizeOut=NULL)    {
+    if (pSizeOut) *pSizeOut=0;
+    unsigned char* ptr = NULL;unsigned long ptrSize=0,ptrCapacity=0;
+    if (memoryBufferSz <= 0  || !memoryBuffer) return ptr;
+    if (pSizeOut) *pSizeOut=0;
+    
+    const size_t memoryBufferSize = (size_t) memoryBufferSz;
+    /*    
+    unsigned long long const rSize = ZSTD_findDecompressedSize      // non present in older zstd versions
+                                    //ZSTD_decompressBound          // non present in older zstd versions
+                                    (memoryBuffer, memoryBufferSize);
+    if (ZSTD_isError(rSize))    {
+        printf("ZSTD_findDecompressedSize(...) Error: %s\n",ZSTD_getErrorName(rSize)); 
+        return ptr;  
+    }
+    //assert(rSize != ZSTD_CONTENTSIZE_ERROR);
+    //assert(rSize != ZSTD_CONTENTSIZE_UNKNOWN);
+    ptrSize = (unsigned long) rSize;
+    assert(rSize == (unsigned long long) ptrSize);    
+    if (ptrSize>0)  {
+        ptr = (unsigned char*) BLENDPARSER_MALLOC(ptrSize); 
+        size_t const dSize = ZSTD_decompress(ptr, ptrSize, memoryBuffer, memoryBufferSize);            
+        if (ZSTD_isError(dSize)) {
+            printf("ZSTD_decompress(...) Error: %s\n",ZSTD_getErrorName(dSize));    
+            if (dSize!=ptrSize) {BLENDPARSER_FREE(ptr);ptr=NULL;ptrSize=0;}
+        }
+        else ptrSize = dSize; 
+    }
+    */
+    
+    /*
+typedef struct ZSTD_inBuffer_s {
+  const void* src;    // start of input buffer
+  size_t size;        // size of input buffer
+  size_t pos;         // position where reading stopped. Will be updated. Necessarily 0 <= pos <= size
+} ZSTD_inBuffer;
+
+
+typedef struct ZSTD_outBuffer_s {
+  void*  dst;         // start of output buffer
+  size_t size;        // size of output buffer
+  size_t pos;         // position where writing stopped. Will be updated. Necessarily 0 <= pos <= size 
+} ZSTD_outBuffer;
+    
+    */
+    
+    
+    ZSTD_DCtx* dctx = ZSTD_createDCtx();
+    const size_t capacityStepMultiplier = 4;   
+    
+    // input buffer
+    const size_t minInputSizeStep = ZSTD_DStreamInSize();
+    const size_t inputSizeStep = minInputSizeStep*capacityStepMultiplier;
+    ZSTD_inBuffer input = { memoryBuffer, 0, 0 };
+    input.size = inputSizeStep<=memoryBufferSize?inputSizeStep:memoryBufferSize;
+    
+    // output buffer
+    const size_t minOutputCapacityStep = ZSTD_DStreamOutSize();
+    const size_t outputCapacityStep = minOutputCapacityStep*capacityStepMultiplier;
+    ptrCapacity= memoryBufferSize*3;  // initial capacity
+    ptr = (unsigned char*) BLENDPARSER_REALLOC(ptr,ptrCapacity);
+    ZSTD_outBuffer output = {ptr, ptrCapacity, 0 };
+    
+    size_t lastRet = 0;
+    int failure = 0;
+    
+    //size_t last_input_pos = 1;    // optional loop lock prevention [line 1/3]
+    //size_t num_reallocs = 0, num_decompression_calls = 0;   // optional debug [line 1/4]
+    while (input.pos < memoryBufferSize) {
+        //if (lastRet==0 && last_input_pos==input.pos) break;    // optional loop lock prevention [line 2/3]
+        if (input.size<memoryBufferSize && input.size-input.pos<minInputSizeStep)    {
+            input.size+=inputSizeStep;
+            if (input.size>memoryBufferSize) input.size=memoryBufferSize;
+        }
+        //last_input_pos = input.pos;    // optional loop lock prevention [line 3/3]        
+        /* The return code is zero if the frame is complete, but there may
+             * be multiple frames concatenated together. Zstd will automatically
+             * reset the context when a frame is complete. Still, calling
+             * ZSTD_DCtx_reset() can be useful to reset the context to a clean
+             * state, for instance if the last decompression call returned an
+             * error.
+        */
+        size_t const ret = ZSTD_decompressStream(dctx, &output , &input);
+        //++num_decompression_calls;   // optional debug [line 2/4]
+        if (ZSTD_isError(ret))    {
+            printf("ZSTD_decompressStream(...) Error: %s\n",ZSTD_getErrorName(ret));
+            failure = 1;break;
+        }
+        else {
+            ptrSize=output.pos;
+            if (input.pos < input.size) {
+                /*
+                    If `output.pos < output.size`, decoder has flushed everything it could.
+                    But if `output.pos == output.size`, there might be some data left within internal buffers.,
+                    In which case, call ZSTD_decompressStream() again to flush whatever remains in the buffer.
+                */
+                if (output.size-output.pos<=outputCapacityStep)    {
+                    //ptrCapacity+= outputCapacityStep;     // grow strategy 1
+                    ptrCapacity+= minOutputCapacityStep+ptrCapacity/4;  // grow strategy 2
+                    ptr = (unsigned char*) BLENDPARSER_REALLOC(ptr,ptrCapacity);
+                    //++num_reallocs;   // optional debug [line 3/4]
+                    output.dst=ptr;output.size=ptrCapacity; // output.pos unchanged           
+                }
+            }
+                
+            //printf("output: %zu/%zu. input: %zu/%zu.\n",output.pos,output.size,input.pos,input.size);
+        }    
+        lastRet = ret;
+    }
+  
+    //printf("num_reallocs: %zu. num_decompression_calls: %zu.\n",num_reallocs,num_decompression_calls);   // optional debug [line 4/4]
+        
+
+    if (lastRet != 0) {
+        /* The last return value from ZSTD_decompressStream did not end on a
+         * frame, but we reached the end of the file! We assume this is an
+         * error, and the input was truncated.
+         */
+        printf("ZSTD_decompressStream(...) Error: EOF before end of stream: %zu\n", lastRet);
+        failure = 1;
+    }  
+    if (failure) {BLENDPARSER_FREE(ptr);ptr=NULL;ptrSize=ptrCapacity=0;}          
+    else if (ptrSize!=ptrCapacity)   {
+        assert(ptrSize<ptrCapacity);
+        //printf("ZstdDecompressFromMemory(...) Trimming memory from: %lu to: %lu\n", ptrCapacity,ptrSize);
+        ptr = (unsigned char*) BLENDPARSER_REALLOC(ptr,ptrSize);
+        ptrCapacity = ptrSize;
+    }
+    
+    ZSTD_freeDCtx(dctx);dctx=NULL;
+    
+    if (pSizeOut) *pSizeOut=ptrSize;
+    
     return ptr;
 }
 #endif //BLENDPARSER_USE_ZLIB
@@ -405,7 +549,12 @@ struct BlendDNA1Block {
             fprintf(f,"#\tifndef uchar\n");
             fprintf(f,"\ttypedef unsigned char uchar;\n");	// unluckily in plain c we can't repeat the same typedef twice...
             fprintf(f,"#\tendif\n");
-            //------------------------            
+            //------------------------    
+            //--- ushort fix in C++ ---
+            fprintf(f,"#\tifndef ushort\n");
+            fprintf(f,"\ttypedef unsigned short ushort;\n");	// unluckily in plain c we can't repeat the same typedef twice...
+            fprintf(f,"#\tendif\n");
+            //------------------------                      
             if (namespaceName && strlen(namespaceName)>0)fprintf(f,"namespace %s\t{\n",namespaceName);            
             fprintf(f,"extern \"C\"\t{\n");
             fprintf(f,"#endif // __cplusplus\n\n\n");
@@ -683,10 +832,17 @@ bool BlendFile::loadFromMemory(unsigned char* buf,unsigned long bufferSize,bool 
     // Check signature
     {
         for (int i=0;i<7;i++) {
-            if ((char)buf[i]!=signature[i]) {
-#               ifdef BLENDPARSER_USE_ZLIB
+            if ((char)buf[i]!=signature[i]) {           
+#               if (defined(BLENDPARSER_USE_ZLIB) || defined(BLENDPARSER_USE_ZSTD))
                 unsigned long ptrSize = 0;
-                unsigned char* ptr = GzDecompressFromMemory(buf,bufferSize,&ptrSize);
+                unsigned char* ptr = NULL;
+#                   if defined(BLENDPARSER_USE_ZSTD)
+                    if (!ptr) ptr = ZstdDecompressFromMemory(buf,bufferSize,&ptrSize);
+#                   elif defined(BLENDPARSER_USE_ZLIB)                
+                    if (!ptr) ptr = GzDecompressFromMemory(buf,bufferSize,&ptrSize);
+#                   else
+#                       error
+#                   endif                    
                 if (ptr)    {
                     bool ok = loadFromMemory(ptr,ptrSize,true);
                     if (passBufOwnershipToMe) BLENDPARSER_FREE((unsigned char*)buf);
@@ -696,7 +852,7 @@ bool BlendFile::loadFromMemory(unsigned char* buf,unsigned long bufferSize,bool 
                     if (passBufOwnershipToMe) BLENDPARSER_FREE((unsigned char*)buf);
                     return false;
                 }
-#               else // BLENDPARSER_USE_ZLIB
+#               else //  (defined(BLENDPARSER_USE_ZLIB) || defined(BLENDPARSER_USE_ZSTD))
                 strncpy(signature,(const char*)blendPtr,7);
                 signature[7]='\0';
                 printf("ERROR: Wrong signature: \"%s\"\n",signature);
@@ -704,7 +860,7 @@ bool BlendFile::loadFromMemory(unsigned char* buf,unsigned long bufferSize,bool 
                 blendPtrSize = bufferSize;
                 blendPtrOwned = passBufOwnershipToMe;
                 return false;
-#               endif //BLENDPARSER_USE_ZLIB
+#               endif // (defined(BLENDPARSER_USE_ZLIB) || defined(BLENDPARSER_USE_ZSTD))
             }
         }
     }
