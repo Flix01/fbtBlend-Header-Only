@@ -2048,7 +2048,7 @@ public:
 	fbtList m_library;
 	fbtList m_object;
 	fbtList m_mesh;
-	fbtList m_curve;
+	fbtList m_curve;	// In Blender>=3.1 it's obsolated and marked 'legacy'. New .blend files should use m_curves instead (see below)
 	fbtList m_mball;    // MataBall
 	fbtList m_mat;      // Material
 	fbtList m_tex;      // Texture
@@ -2071,8 +2071,8 @@ public:
 	fbtList m_nodetree;
 	fbtList m_brush;
 	fbtList m_particle; // ParticleSettings
-	fbtList m_wm;       // WindowManager
-	fbtList m_gpencil;	
+	fbtList m_gpencil;
+	fbtList m_wm;       // WindowManager	
 	fbtList m_movieClip;
 	fbtList m_mask;
 	fbtList m_freeStyleLineStyle;
@@ -2081,7 +2081,8 @@ public:
 	fbtList m_cacheFile;
 	fbtList m_workSpace;
 	fbtList m_lightProbe;
-	fbtList m_hair;
+	fbtList m_hair;		// Removed in Blender 3.1: replaced by m_curves.
+	fbtList m_curves;	// Replacement for m_hair (and m_curve) in Blender>=3.1
 	fbtList m_pointCloud;
 	fbtList m_volume;
 	fbtList m_simulation;// GeometryNodeGroups
@@ -4923,46 +4924,47 @@ struct fbtIdDB
 fbtIdDB fbtData[] =
 {
 	{ FBT_ID2('S', 'C'), &fbtBlend::m_scene},
-	{ FBT_ID2('L', 'I'), &fbtBlend::m_library },
-	{ FBT_ID2('O', 'B'), &fbtBlend::m_object },
-	{ FBT_ID2('M', 'E'), &fbtBlend::m_mesh },
-	{ FBT_ID2('C', 'U'), &fbtBlend::m_curve },
-	{ FBT_ID2('M', 'B'), &fbtBlend::m_mball },
-	{ FBT_ID2('M', 'A'), &fbtBlend::m_mat },
-	{ FBT_ID2('T', 'E'), &fbtBlend::m_tex },
-	{ FBT_ID2('I', 'M'), &fbtBlend::m_image },
-	{ FBT_ID2('L', 'T'), &fbtBlend::m_latt },
-	{ FBT_ID2('L', 'A'), &fbtBlend::m_lamp },
-	{ FBT_ID2('C', 'A'), &fbtBlend::m_camera },
-	{ FBT_ID2('I', 'P'), &fbtBlend::m_ipo },
-	{ FBT_ID2('K', 'E'), &fbtBlend::m_key },
-	{ FBT_ID2('W', 'O'), &fbtBlend::m_world },
+	{ FBT_ID2('L', 'I'), &fbtBlend::m_library},
+	{ FBT_ID2('O', 'B'), &fbtBlend::m_object},
+	{ FBT_ID2('M', 'E'), &fbtBlend::m_mesh},
+	{ FBT_ID2('C', 'U'), &fbtBlend::m_curve},
+	{ FBT_ID2('M', 'B'), &fbtBlend::m_mball},
+	{ FBT_ID2('M', 'A'), &fbtBlend::m_mat},
+	{ FBT_ID2('T', 'E'), &fbtBlend::m_tex},
+	{ FBT_ID2('I', 'M'), &fbtBlend::m_image},
+	{ FBT_ID2('L', 'T'), &fbtBlend::m_latt},
+	{ FBT_ID2('L', 'A'), &fbtBlend::m_lamp},
+	{ FBT_ID2('C', 'A'), &fbtBlend::m_camera},
+	{ FBT_ID2('I', 'P'), &fbtBlend::m_ipo},
+	{ FBT_ID2('K', 'E'), &fbtBlend::m_key},
+	{ FBT_ID2('W', 'O'), &fbtBlend::m_world},
 	{ FBT_ID2('S', 'N'), &fbtBlend::m_screen},
-	{ FBT_ID2('P', 'Y'), &fbtBlend::m_script },
-	{ FBT_ID2('V', 'F'), &fbtBlend::m_vfont },
-	{ FBT_ID2('T', 'X'), &fbtBlend::m_text },
-	{ FBT_ID2('S', 'K'), &fbtBlend::m_speaker },
-	{ FBT_ID2('S', 'O'), &fbtBlend::m_sound },	
-	{ FBT_ID2('G', 'R'), &fbtBlend::m_group },
-	{ FBT_ID2('A', 'R'), &fbtBlend::m_armature },
-	{ FBT_ID2('A', 'C'), &fbtBlend::m_action },
-	{ FBT_ID2('N', 'T'), &fbtBlend::m_nodetree },
-	{ FBT_ID2('B', 'R'), &fbtBlend::m_brush },
-	{ FBT_ID2('P', 'A'), &fbtBlend::m_particle },
-	{ FBT_ID2('G', 'D'), &fbtBlend::m_gpencil },
-	{ FBT_ID2('W', 'M'), &fbtBlend::m_wm },	
-	{ FBT_ID2('M', 'C'), &fbtBlend::m_movieClip },	
-	{ FBT_ID2('M', 'S'), &fbtBlend::m_mask },	
-	{ FBT_ID2('L', 'S'), &fbtBlend::m_freeStyleLineStyle },	
-	{ FBT_ID2('P', 'L'), &fbtBlend::m_palette },	
-	{ FBT_ID2('P', 'C'), &fbtBlend::m_paintCurve },	
-	{ FBT_ID2('C', 'F'), &fbtBlend::m_cacheFile },	
-	{ FBT_ID2('W', 'S'), &fbtBlend::m_workSpace },	
-	{ FBT_ID2('L', 'P'), &fbtBlend::m_lightProbe },	
-	{ FBT_ID2('H', 'A'), &fbtBlend::m_hair },	
-	{ FBT_ID2('P', 'T'), &fbtBlend::m_pointCloud },	
-	{ FBT_ID2('V', 'O'), &fbtBlend::m_volume },	
-	{ FBT_ID2('S', 'I'), &fbtBlend::m_simulation },		
+	{ FBT_ID2('P', 'Y'), &fbtBlend::m_script},
+	{ FBT_ID2('V', 'F'), &fbtBlend::m_vfont},
+	{ FBT_ID2('T', 'X'), &fbtBlend::m_text},
+	{ FBT_ID2('S', 'K'), &fbtBlend::m_speaker},
+	{ FBT_ID2('S', 'O'), &fbtBlend::m_sound},
+	{ FBT_ID2('G', 'R'), &fbtBlend::m_group},
+	{ FBT_ID2('A', 'R'), &fbtBlend::m_armature},
+	{ FBT_ID2('A', 'C'), &fbtBlend::m_action},
+	{ FBT_ID2('N', 'T'), &fbtBlend::m_nodetree},
+	{ FBT_ID2('B', 'R'), &fbtBlend::m_brush},
+	{ FBT_ID2('P', 'A'), &fbtBlend::m_particle},
+	{ FBT_ID2('G', 'D'), &fbtBlend::m_gpencil},
+	{ FBT_ID2('W', 'M'), &fbtBlend::m_wm},
+	{ FBT_ID2('M', 'C'), &fbtBlend::m_movieClip},
+	{ FBT_ID2('M', 'S'), &fbtBlend::m_mask},
+	{ FBT_ID2('L', 'S'), &fbtBlend::m_freeStyleLineStyle},
+	{ FBT_ID2('P', 'L'), &fbtBlend::m_palette},
+	{ FBT_ID2('P', 'C'), &fbtBlend::m_paintCurve},
+	{ FBT_ID2('C', 'F'), &fbtBlend::m_cacheFile},
+	{ FBT_ID2('W', 'S'), &fbtBlend::m_workSpace},
+	{ FBT_ID2('L', 'P'), &fbtBlend::m_lightProbe},
+	{ FBT_ID2('H', 'A'), &fbtBlend::m_hair},
+	{ FBT_ID2('C', 'V'), &fbtBlend::m_curves},
+	{ FBT_ID2('P', 'T'), &fbtBlend::m_pointCloud},
+	{ FBT_ID2('V', 'O'), &fbtBlend::m_volume},
+	{ FBT_ID2('S', 'I'), &fbtBlend::m_simulation},
 	{ 0, 0 }
 };
 
