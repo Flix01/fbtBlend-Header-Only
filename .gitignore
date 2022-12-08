@@ -125,7 +125,7 @@ test_skeletal_animation/Makefile
 302/tests/testGlut.cpp
 303_LTS/tests/testConsole
 303_LTS/tests/testGlut
-303/tests/testGlut.cpp
+303_LTS/tests/testGlut.cpp
 304/tests/testConsole
 304/tests/testGlut
 304/tests/testGlut.cpp
