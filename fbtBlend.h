@@ -86,13 +86,17 @@
 
 // global config settings
 #ifndef fbtMaxTable
-#   define fbtMaxTable     5000        // Maximum number of elements in a table
+#	if BLENDER_VERSION<306
+#   	define fbtMaxTable     5000        // Maximum number of elements in a table
+#	else
+#   	define fbtMaxTable     6000        // Maximum number of elements in a table
+#	endif
 #endif
 #ifndef fbtMaxID
 #   define fbtMaxID        64          // Maximum character array length
 #endif
-#   ifndef fbtMaxMember
-#define fbtMaxMember    256         // Maximum number of members in a struct or class.
+#ifndef fbtMaxMember
+#	define fbtMaxMember    256         // Maximum number of members in a struct or class.
 #endif
 #ifndef fbtDefaultAlloc
 #   define fbtDefaultAlloc 2048        // Table default allocation size
@@ -4927,7 +4931,7 @@ fbtIdDB fbtData[] =
 	{ FBT_ID2('L', 'I'), &fbtBlend::m_library},
 	{ FBT_ID2('O', 'B'), &fbtBlend::m_object},
 	{ FBT_ID2('M', 'E'), &fbtBlend::m_mesh},
-	{ FBT_ID2('C', 'U'), &fbtBlend::m_curve},
+	{ FBT_ID2('C', 'U'), &fbtBlend::m_curve},	// ID_CV should be used in the future (see #95355).
 	{ FBT_ID2('M', 'B'), &fbtBlend::m_mball},
 	{ FBT_ID2('M', 'A'), &fbtBlend::m_mat},
 	{ FBT_ID2('T', 'E'), &fbtBlend::m_tex},
@@ -4938,7 +4942,11 @@ fbtIdDB fbtData[] =
 	{ FBT_ID2('I', 'P'), &fbtBlend::m_ipo},
 	{ FBT_ID2('K', 'E'), &fbtBlend::m_key},
 	{ FBT_ID2('W', 'O'), &fbtBlend::m_world},
+#	if BLENDER_VERSION<306	// not sure when the switch was made...
 	{ FBT_ID2('S', 'N'), &fbtBlend::m_screen},
+#	else
+	{ FBT_ID2('S', 'R'), &fbtBlend::m_screen},
+#	endif	
 	{ FBT_ID2('P', 'Y'), &fbtBlend::m_script},
 	{ FBT_ID2('V', 'F'), &fbtBlend::m_vfont},
 	{ FBT_ID2('T', 'X'), &fbtBlend::m_text},

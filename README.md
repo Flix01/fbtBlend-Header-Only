@@ -23,10 +23,10 @@ A third demo is present in the subfolder **test_skeletal_animation** (build inst
 * glut (or freeglut)
 * glew (Windows only)
 
-## Blender versions from 2.80 to 3.5
+## Blender versions from 2.80 to 3.6 LTS
 
-In the *280*, *...*, *305* repository folders there are versions of **fbtBlend.h** and **Blender.h** updated for Blender 2.80, ..., 3.5.
-In the *280/tests*, *.../tests*, *305/tests* subfolders there are some test programs that should compile correctly with these versions.
+In the *280*, *...*, *306_LTS* repository folders there are versions of **fbtBlend.h** and **Blender.h** updated for Blender 2.80, ..., 3.6 LTS.
+In the *280/tests*, *.../tests*, *306_LTS/tests* subfolders there are some test programs that should compile correctly with these versions.
 
 Please note that:
 - the files: **XXX/tests/testGlut.cpp**, when **XXX>=280**, are the same as the 2.79 version, except that all materials have been stripped, because Blender>=2.80 doesn't support "Blender Internal" materials anymore.
