@@ -2075,7 +2075,7 @@ public:
 	fbtList m_nodetree;
 	fbtList m_brush;
 	fbtList m_particle; // ParticleSettings
-	fbtList m_gpencil;
+	fbtList m_gpencilLegacy;
 	fbtList m_wm;       // WindowManager	
 	fbtList m_movieClip;
 	fbtList m_mask;
@@ -2090,6 +2090,7 @@ public:
 	fbtList m_pointCloud;
 	fbtList m_volume;
 	fbtList m_simulation;// GeometryNodeGroups
+	fbtList m_gpencil;
 
 	Blender::FileGlobal* m_fg;
 
@@ -4958,7 +4959,7 @@ fbtIdDB fbtData[] =
 	{ FBT_ID2('N', 'T'), &fbtBlend::m_nodetree},
 	{ FBT_ID2('B', 'R'), &fbtBlend::m_brush},
 	{ FBT_ID2('P', 'A'), &fbtBlend::m_particle},
-	{ FBT_ID2('G', 'D'), &fbtBlend::m_gpencil},
+	{ FBT_ID2('G', 'D'), &fbtBlend::m_gpencilLegacy},
 	{ FBT_ID2('W', 'M'), &fbtBlend::m_wm},
 	{ FBT_ID2('M', 'C'), &fbtBlend::m_movieClip},
 	{ FBT_ID2('M', 'S'), &fbtBlend::m_mask},
@@ -4973,6 +4974,7 @@ fbtIdDB fbtData[] =
 	{ FBT_ID2('P', 'T'), &fbtBlend::m_pointCloud},
 	{ FBT_ID2('V', 'O'), &fbtBlend::m_volume},
 	{ FBT_ID2('S', 'I'), &fbtBlend::m_simulation},
+	{ FBT_ID2('G', 'P'), &fbtBlend::m_gpencil},
 	{ 0, 0 }
 };
 
