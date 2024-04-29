@@ -1,7 +1,7 @@
 # fbtBlend-Header-Only
 
 
-**fbtBlend** is a C++ .blend file parser from https://github.com/gamekit-developers/gamekit (available in the repository subfolder: /tree/master/Tools/FileTools).
+**fbtBlend** is a C++ .blend file parser from https://github.com/gamekit-developers/gamekit (available in the repository subfolder: [./Tools/FileTools/FileFormats/Blend](https://github.com/gamekit-developers/gamekit/tree/master/Tools/FileTools/FileFormats/Blend)).
 
 Here there's a version updated to Blender 2.79 and amalgamated into two header files: **fbtBlend.h** and **Blender.h**.
 
