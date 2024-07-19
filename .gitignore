@@ -141,9 +141,9 @@ test_skeletal_animation/Makefile
 401/tests/testConsole
 401/tests/testGlut
 401/tests/testGlut.cpp
-402/tests/testConsole
-402/tests/testGlut
-402/tests/testGlut.cpp
+402_LTS/tests/testConsole
+402_LTS/tests/testGlut
+402_LTS/tests/testGlut.cpp
 403/tests/testConsole
 403/tests/testGlut
 403/tests/testGlut.cpp
