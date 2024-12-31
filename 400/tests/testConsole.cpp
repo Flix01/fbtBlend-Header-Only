@@ -1,4 +1,4 @@
-// Linux:
+// Linux / MacOS:
 // g++ -Os -no-pie testConsole.cpp -I"./" -I"../" -o testConsole -D"FBT_USE_ZSTD_FILE=1" -lzstd
 // Windows:
 // cl ./testConsole.cpp /I"./" /I"../" /D"FBT_USE_ZSTD_FILE=1" /link /out:testConsole.exe libzstd.lib Shell32.lib comdlg32.lib user32.lib kernel32.lib

@@ -33,7 +33,7 @@ is licensed under CC-BY 4.0.
 // HOW TO COMPILE:
 /*
 // IMPORTANT:
-// LINUX:
+// LINUX / MacOS:
 g++ -O2 -no-pie *.cpp -o test_skeletal_animation -D"FBT_USE_GZ_FILE=1" -I"../" -I"./" -lglut -lGL -lz -lX11 -lm
 // WINDOWS (here we use the static version of glew, and glut32.lib, that can be replaced by freeglut.lib):
 cl /O2 /MT *.cpp /I"./" /I"../" /D"GLEW_STATIC"  /D"FBT_USE_GZ_FILE=1" /link /out:test_skeletal_animation.exe glut32.lib glew32s.lib opengl32.lib gdi32.lib zlib.lib Shell32.lib comdlg32.lib user32.lib kernel32.lib

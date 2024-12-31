@@ -24,7 +24,7 @@
 
 // HOW TO COMPILE:
 /*
-// LINUX:
+// LINUX / MacOS:
 // With -lzstd:
 g++ -O2 -no-pie ./testGlut.cpp -o testGlut -D"FBT_USE_ZSTD_FILE=1" -I"../" -I"./" -lglut -lGL -lzstd -lX11 -lm
 // Without -lzstd:

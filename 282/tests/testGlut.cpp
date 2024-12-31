@@ -24,7 +24,7 @@
 
 // HOW TO COMPILE:
 /*
-// LINUX:
+// LINUX / MacOS:
 // With -lz:
 g++ -O2 -no-pie ./testGlut.cpp -o testGlut -D"FBT_USE_GZ_FILE=1" -I"../" -I"./" -lglut -lGL -lz -lX11 -lm
 // Without -lz:

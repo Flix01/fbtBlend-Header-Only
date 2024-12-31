@@ -8,7 +8,7 @@ Here there's a version updated to Blender 2.79 and amalgamated into two header f
 
 ## Demos
 
-Two demos are available: **testConsole.cpp** and **testGlut.cpp** (they contain build instructions for Linux and Windows).
+Two demos are available: **testConsole.cpp** and **testGlut.cpp** (they contain build instructions for Linux/MacOS and Windows).
 
 A third demo is present in the subfolder **test_skeletal_animation** (build instructions are at the top of **test_skeletal_animation/main.cpp**).
 
