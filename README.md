@@ -23,14 +23,14 @@ A third demo is present in the subfolder **test_skeletal_animation** (build inst
 * glut (or freeglut)
 * glew (Windows only)
 
-## Blender versions from 2.80 to 4.4
+## Blender versions from 2.80 to 4.5 LTS
 
-In the *280*, *...*, *404* repository folders there are versions of **fbtBlend.h** and **Blender.h** updated for Blender 2.80, ..., 4.4.
-In the *280/tests*, *.../tests*, *404/tests* subfolders there are some test programs that should compile correctly with these versions.
+In the *280*, *...*, *405_LTS* repository folders there are versions of **fbtBlend.h** and **Blender.h** updated for Blender 2.80, ..., 4.5 LTS.
+In the *280/tests*, *.../tests*, *405_LTS/tests* subfolders there are some test programs that should compile correctly with these versions.
 
 Please note that:
 - the files: **XXX/tests/testGlut.cpp**, when **XXX>=280**, are the same as the 2.79 version, except that all materials have been stripped, because Blender>=2.80 doesn't support "Blender Internal" materials anymore.
-- the files: **3xx/tests/testGlut.cpp**, when **3xx>=301**, are missing, because Blender 3.1 (or newer) has removed normals from the ```struct MVert```, and I don't know how to retrieve them.
+- the files: **XXX/tests/testGlut.cpp**, when **XXX>=301**, are missing, because Blender 3.1 (or newer) has removed normals from the ```struct MVert```, and I don't know how to retrieve them.
 
 Of course I'll **NEVER** make a ```testGlut.cpp``` that can display physics-based materials... be warned!
 
