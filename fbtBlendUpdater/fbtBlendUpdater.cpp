@@ -1,11 +1,10 @@
 
-// g++ -Os -no-pie -fno-pie fbtBlendUpdater.cpp -o fbtBlendUpdater
-// or better:
-// g++ -Os -no-pie -fno-pie fbtBlendUpdater.cpp -D"BLENDPARSER_USE_ZLIB" -D"BLENDPARSER_USE_ZSTD" -o fbtBlendUpdater -lz -lzstd
+// g++ -Os -no-pie -fno-pie fbtBlendUpdater.cpp -o fbtBlendUpdater -lz -lzstd
 
-// The first commandline can cause segmentation fault when loading a .blend compressed file.
-
-//#define BLENDPARSER_USE_ZLIB
+// without any of these defines, only uncompressed blend files will be supported
+// BUT compressed blend files will crash if you try to load them (segmentation fault or something like that)
+#define BLENDPARSER_USE_ZLIB // tweakable (needed only for old blend files)
+#define BLENDPARSER_USE_ZSTD // tweakable (needed only for new blend files)
 
 #include <string.h>
 
@@ -60,9 +59,10 @@ unsigned char* blendPtr;
 unsigned long blendPtrSize;
 bool blendPtrOwned;
 
-char version[4];
+char version[5];int versionNumber;
 unsigned int _uiPointerSize;   // 4 or 8
 bool _bLittleEndian;
+unsigned int fileFormatVersion; // 0 for Blender<5.0
 
 const unsigned char** blockHeaderPtrs;  // The DNA1 block is NOT included
 unsigned long numBlockHeaders;
@@ -534,8 +534,20 @@ struct BlendDNA1Block {
         if (pStructs && types && names)   {
             if (guardName && strlen(guardName)>0) fprintf(f,"#ifndef %s\n#define %s\n",guardName,guardName);
             if (pWholeBlendFilePtr) {
-                fprintf(f,"\n// Generated using %.12s\n",pWholeBlendFilePtr);
-                fprintf(f,"#define BLENDER_VERSION %.3s\n\n",pWholeBlendFilePtr+9);
+                if (pWholeBlendFilePtr[9]!='-') {
+                    fprintf(f,"\n// Generated using %.12s\n",pWholeBlendFilePtr);
+                    fprintf(f,"#define BLENDER_VERSION %.3s\n\n",pWholeBlendFilePtr+9);
+                }
+                else {
+                    if (pWholeBlendFilePtr[13]=='0') {
+                        fprintf(f,"\n// Generated using BLENDER-v%.3s\n",pWholeBlendFilePtr+14);
+                        fprintf(f,"#define BLENDER_VERSION %.3s\n\n",pWholeBlendFilePtr+14);
+                    }
+                    else {
+                        fprintf(f,"\n// Generated using BLENDER-v%.4s\n",pWholeBlendFilePtr+13);
+                        fprintf(f,"#define BLENDER_VERSION %.4s\n\n",pWholeBlendFilePtr+13);
+                    }
+                }
             }
 
 
@@ -640,7 +652,7 @@ struct BlendBlock {
     static uint32_t GetSDNAIndex(const unsigned char* blockHeaderPtr,bool litteEndian,unsigned int pointerSize) {return ParseUInt32(blockHeaderPtr+8+pointerSize,litteEndian);}
     static uint32_t GetNumElements(const unsigned char* blockHeaderPtr,bool litteEndian,unsigned int pointerSize) {return ParseUInt32(blockHeaderPtr+12+pointerSize,litteEndian);}
     static const unsigned char* GetBlockDataPtr(const unsigned char* blockHeaderPtr,unsigned int pointerSize)    {return  blockHeaderPtr+16+pointerSize;}
-    static const unsigned char* GetNextBlockPtr(const unsigned char* blockHeaderPtr,bool litteEndian,unsigned int pointerSize)    {return  blockHeaderPtr+16+pointerSize+GetDataSize(blockHeaderPtr,litteEndian);}
+    static const unsigned char* GetNextBlockPtr(const unsigned char* blockHeaderPtr,bool litteEndian,unsigned int pointerSize)    {return  blockHeaderPtr+16+pointerSize+GetDataSize(blockHeaderPtr,litteEndian);}    
 
     static void Printf(unsigned long blockIndex,const unsigned char* blockHeaderPtr,bool litteEndian,unsigned int pointerSize,const BlendDNA1Block* dna1Block=NULL) {
         const uint32_t sdnaIndex = GetSDNAIndex(blockHeaderPtr,litteEndian,pointerSize);
@@ -654,7 +666,112 @@ struct BlendBlock {
         (unsigned long)GetOldMemoryAddress(blockHeaderPtr,litteEndian,pointerSize)
         );
     }
+
+    static uint64_t GetDataSize64(const unsigned char* blockHeaderPtr,bool litteEndian=true,unsigned int pointerSize=8) {return ParseUInt64(blockHeaderPtr+8,pointerSize,litteEndian);}
+
+/*
+ * OLD VERSION BLOCK HEADERS (size = 16 + pointer-size = 20 or 24 bytes)
+ -----------------------------------------------------------------------------------------------------------------------
+    code                char[4] 	File-block identifier                                           0               4
+    size                integer 	Total length of the data after the file-block-header            4               4
+    old memory address 	void*       Memory address the structure was located when written to disk 	8               pointer-size (4/8)
+    SDNA index          integer 	Index of the SDNA structure                                     8+pointer-size 	4
+    count               integer 	Number of structure located in this file-block                  12+pointer-size	4
+
+ * NEW VERSION BLOCK HEADERS (size = 32 bytes)
+ -----------------------------------------------------------------------------------------------------------------------
+    code                char[4] 	File-block identifier                                           0               4
+    SDNA index          integer 	Index of the SDNA structure                                     4               4
+    old memory address 	void*       Memory address the structure was located when written to disk 	8               8
+    size                int64       Total length of the data after the file-block-header            16              8
+    count               int64       Number of structure located in this file-block                  24              8
+
+
+// official doc from Blender (BLO_core-bhead.hh) :
+-----------------------------------------------------------------------------------------------------------------------
+struct BHead {
+  int code; // Identifier for this #BHead. Can be any of BLO_CODE_* or an ID code like ID_OB.
+  int SDNAnr; // Identifier of the struct type that is stored in this block.
+  //
+   // Identifier the block had when it was written. This is used to remap memory blocks on load.
+   // Typically, this is the pointer that the memory had when it was written.
+   // This should be unique across the whole blend-file, except for `BLEND_DATA` blocks, which
+   // should be unique within a same ID.
+  //
+  const void *old;
+  int64_t len; // Number of bytes in the block.
+  int64_t nr; // Number of structs in the array (1 for simple structs).
 };
+
+struct BHead4 {
+  int code, len;
+  uint old;
+  int SDNAnr, nr;
+}; // size = 20 bytes
+
+struct SmallBHead8 {
+  int code, len;
+  uint64_t old;
+  int SDNAnr, nr;
+}; // size = 24 bytes
+
+struct LargeBHead8 {
+  int code;
+  int SDNAnr;
+  uint64_t old;
+  int64_t len;
+  int64_t nr;
+}; // size = 32 bytes
+
+*/
+
+};
+
+struct BlendBlockNew {
+    static void PrintfType(const unsigned char* blockHeaderPtr) {printf("%.4s",(const char*)blockHeaderPtr);}
+    static bool MatchType(const unsigned char* blockHeaderPtr,const char* type4) {return strncmp(type4,(const char*)blockHeaderPtr,4)==0;}
+    static uint32_t GetSDNAIndex(const unsigned char* blockHeaderPtr) {return ParseUInt32(blockHeaderPtr+4,1);}
+    static uint64_t GetOldMemoryAddress(const unsigned char* blockHeaderPtr) {return ParseUInt64(blockHeaderPtr+8,8,1);}
+    static uint64_t GetDataSize(const unsigned char* blockHeaderPtr) {return ParseUInt64(blockHeaderPtr+16,8,1);}
+    static uint64_t GetNumElements(const unsigned char* blockHeaderPtr) {return ParseUInt64(blockHeaderPtr+24,8,1);}
+    static const unsigned char* GetBlockDataPtr(const unsigned char* blockHeaderPtr)    {return  blockHeaderPtr+32;}
+    static const unsigned char* GetNextBlockPtr(const unsigned char* blockHeaderPtr)    {return  blockHeaderPtr+32+GetDataSize(blockHeaderPtr);}
+
+    static void Printf(unsigned long blockIndex,const unsigned char* blockHeaderPtr,const BlendDNA1Block* dna1Block=NULL) {
+        const uint32_t sdnaIndex = GetSDNAIndex(blockHeaderPtr);
+        printf("%lu)\t\"%.4s\"\tobjDataSize: %lu\tobjSDNAIndex: %u [%s]\tobjNumElements: %lu\t objDataOldMemoryAddress=%lu\n",
+        blockIndex,
+        (const char*)blockHeaderPtr,
+        GetDataSize(blockHeaderPtr),
+        sdnaIndex,
+        dna1Block ? dna1Block->types[dna1Block->pStructs[sdnaIndex].typeIdx] : "NULL",
+        GetNumElements(blockHeaderPtr),
+        (uint64_t)GetOldMemoryAddress(blockHeaderPtr)
+        );
+    }
+
+/*
+ NEW VERSION BLOCK HEADERS (size = 32 bytes)
+ -----------------------------------------------------------------------------------------------------------------------
+    code                char[4] 	File-block identifier                                           0               4
+    SDNA index          integer 	Index of the SDNA structure                                     4               4
+    old memory address 	void*       Memory address the structure was located when written to disk 	8               8
+    size                int64       Total length of the data after the file-block-header            16              8
+    count               int64       Number of structure located in this file-block                  24              8
+*/
+
+/*
+    struct LargeBHead8 {
+      int code;
+      int SDNAnr;
+      uint64_t old;
+      int64_t len;
+      int64_t nr;
+    };
+*/
+};
+
+
 
 bool BlendFile::loadFromFile(const char *filePath)  {
     unsigned long size=0;
@@ -664,7 +781,7 @@ bool BlendFile::loadFromFile(const char *filePath)  {
     return rv;
 }
 BlendFile::BlendFile() : blendPtr(NULL),blendPtrSize(0),blendPtrOwned(false) {
-strcpy(version,"000");
+strcpy(version,"0000");
 _uiPointerSize=8;
 _bLittleEndian=true;
 blockHeaderPtrs = NULL;
@@ -820,7 +937,41 @@ bool BlendFile::parseDNA1Block(const unsigned char* pDNA1,unsigned int dna1Block
 
 bool BlendFile::loadFromMemory(unsigned char* buf,unsigned long bufferSize,bool passBufOwnershipToMe) {
     clear();
-    char signature[8] = "BLENDER";
+/**
+ * A low level blend file version number. Also see #decode_blender_header for how the first few
+ * bytes of a .blend file are structured.
+ *
+ * 0: Uses #BHead4 or #SmallBHead8 for block headers depending on a .blend file header byte.
+ * 1: Uses #LargeBHead8 for block headers.
+ */
+
+/**
+ * Low level version 0: the header is 12 bytes long.
+ * 0-6:  'BLENDER'
+ * 7:    '-' for 8-byte pointers (#SmallBHead8) or '_' for 4-byte pointers (#BHead4)
+ * 8:    'v' for little endian or 'V' for big endian
+ * 9-11: 3 ASCII digits encoding #BLENDER_FILE_VERSION (e.g. '305' for Blender 3.5)
+ */
+//#define BLEND_FILE_FORMAT_VERSION_0 0
+/**
+ * Lower level version 1: the header is 17 bytes long.
+ * 0-6:   'BLENDER'
+ * 7-8:   size of the header in bytes encoded as ASCII digits (always '17' currently)
+ * 9:     always '-'
+ * 10-11: File version format as ASCII digits (always '01' currently)
+ * 12:    always 'v'
+ * 13-16: 4 ASCII digits encoding #BLENDER_FILE_VERSION (e.g. '0405' for Blender 4.5)
+ *
+ * With this header, #LargeBHead8 is always used.
+ */
+//#define BLEND_FILE_FORMAT_VERSION_1 1
+
+// Split BHead8 into SmallBHead8 and LargeBHead8. The latter is the new one and uses int64_t for array sizes instead of just int. // That applies to buffer size in bytes (len) and the array size (nr).
+// The first .blend file header (the first few bytes of the file) are updated according to #129309.
+// Support reading files with that use BHead4, SmallBHead8 and LargeBHead8.
+
+
+    char signature[8] = "BLENDER";versionNumber=0;
 
     if (!buf || bufferSize<15)  {
         blendPtr = (unsigned char*) buf;
@@ -828,6 +979,22 @@ bool BlendFile::loadFromMemory(unsigned char* buf,unsigned long bufferSize,bool 
         blendPtrOwned = passBufOwnershipToMe;
         return false;
     }
+
+    fileFormatVersion = (((char)buf[9])=='-')?1:0; // not sure if this is robust enough, but probably it just works
+    if (fileFormatVersion && bufferSize<20) {
+        blendPtr = (unsigned char*) buf;
+        blendPtrSize = bufferSize;
+        blendPtrOwned = passBufOwnershipToMe;
+        return false;
+    }
+    
+    unsigned long blendHeaderSize = 12;
+    if (fileFormatVersion) {
+        //blendHeaderSize=17; // this should be enough, but...        
+        blendHeaderSize=(((char)buf[8]>='0' && (char)buf[8]<='9') && ((char)buf[7]>='0' && (char)buf[7]<='9'))?(((char)buf[8]-'0')+((char)buf[7]-'0')*10):17;
+        if (blendHeaderSize>64) blendHeaderSize=64;
+        if (blendHeaderSize>=bufferSize) blendHeaderSize=bufferSize;    
+    }    
 
     // Check signature
     {
@@ -853,9 +1020,11 @@ bool BlendFile::loadFromMemory(unsigned char* buf,unsigned long bufferSize,bool 
                     return false;
                 }
 #               else //  (defined(BLENDPARSER_USE_ZLIB) || defined(BLENDPARSER_USE_ZSTD))
-                strncpy(signature,(const char*)blendPtr,7);
-                signature[7]='\0';
-                printf("ERROR: Wrong signature: \"%s\"\n",signature);
+                if (blendPtr) {
+                    strncpy(signature,(const char*)blendPtr,7);signature[7]='\0';
+                    printf("ERROR: Wrong signature: \"%s\"\n",signature);
+                }
+                else printf("ERROR: Wrong signature and NULL blendPtr\n");
                 blendPtr = (unsigned char*) buf;
                 blendPtrSize = bufferSize;
                 blendPtrOwned = passBufOwnershipToMe;
@@ -869,54 +1038,113 @@ bool BlendFile::loadFromMemory(unsigned char* buf,unsigned long bufferSize,bool 
     blendPtrSize = bufferSize;
     blendPtrOwned = passBufOwnershipToMe;
 
-    _uiPointerSize = (char)blendPtr[7]=='-' ? 8 : 4;
-    _bLittleEndian = (char)blendPtr[8]=='v' ? true : false;
-    for (int i=0;i<3;i++) version[i]=(char)blendPtr[9+i];
+    if (!fileFormatVersion) {
+        _uiPointerSize = (char)blendPtr[7]=='-' ? 8 : 4;
+        _bLittleEndian = (char)blendPtr[8]=='v' ? true : false;
+        version[0]='0';
+        for (int i=0;i<3;i++) version[i+1]=(char)blendPtr[9+i];
+        version[4]='\0';
+    }
+    else {
+        _uiPointerSize = (char)blendPtr[9]=='-' ? 8 : 4;
+        _bLittleEndian = (char)blendPtr[12]=='v' ? true : false;
+        for (int i=0;i<4;i++) version[i]=(char)blendPtr[13+i];
+        version[4]='\0';
+
+        if (_uiPointerSize!=8) {
+            printf("ERROR: fileFormatVersion=%d should only support _uiPointerSize==8 (and not %u)\n",fileFormatVersion,_uiPointerSize);
+            return false;
+        }
+        if (!_bLittleEndian) {
+            printf("ERROR: fileFormatVersion=%d should only support _bLittleEndian==true (and not false)\n",fileFormatVersion);
+            return false;
+        }
+    }
 
     //printf("DBG: bufferSize: %lu\n",bufferSize);
     //printf("DBG: Version: \"%s\"\t_uiPointerSize: %u\t _bLittleEndian=%s\n",version,_uiPointerSize,_bLittleEndian?"true":"false");
+
+    // TODO: How to modify this for isBlendFileFormatVersion1?
 
     const unsigned long blockIncrement = 100;
     const unsigned long sizeOfPtr = sizeof(const unsigned char*);
     numBlockHeaders = blockIncrement;
     blockHeaderPtrs = (const unsigned char**) BLENDPARSER_MALLOC(numBlockHeaders*sizeOfPtr);
-    const unsigned long objHeaderSize = 16 + _uiPointerSize;
-    unsigned long objOffset = 12;unsigned long cnt=0;
+    const unsigned long objHeaderSize = fileFormatVersion!=0?32:(16 + _uiPointerSize); // 20 or 24
+    unsigned long objOffset = blendHeaderSize;
+    unsigned long cnt=0;
     const unsigned char* pObj = &blendPtr[objOffset];
-    uint32_t objDataSize = 0;
-    while (pObj && (objOffset+objHeaderSize<=blendPtrSize)) {
-        if (strncmp((const char*)pObj,"ENDB",4)==0) break;
-        objDataSize = BlendBlock::GetDataSize(pObj,_bLittleEndian);
+    if (fileFormatVersion==0) {
+        uint32_t objDataSize = 0;
+        while (pObj && (objOffset+objHeaderSize<=blendPtrSize)) {
+            if (strncmp((const char*)pObj,"ENDB",4)==0) break;
+            objDataSize = BlendBlock::GetDataSize(pObj,_bLittleEndian);
 
-        if (strncmp((const char*)pObj,"DNA1",4)==0) {
-            // DNA
-            if (objDataSize>12) {
-                const unsigned char* pDNA = pObj+objHeaderSize;
-                if (!parseDNA1Block(pDNA,objDataSize)) {
-                    if (dna1Block) {dna1Block->~BlendDNA1Block();BLENDPARSER_FREE(dna1Block);dna1Block=NULL;}
-                }
-                else {
-                    _blockDnaPtr=pDNA;
-                    _blockDnaSize=objDataSize;
+            if (strncmp((const char*)pObj,"DNA1",4)==0) {
+                // DNA
+                if (objDataSize>12) {
+                    const unsigned char* pDNA = pObj+objHeaderSize;
+                    if (!parseDNA1Block(pDNA,objDataSize)) {
+                        if (dna1Block) {dna1Block->~BlendDNA1Block();BLENDPARSER_FREE(dna1Block);dna1Block=NULL;}
+                    }
+                    else {
+                        _blockDnaPtr=pDNA;
+                        _blockDnaSize=objDataSize;
+                    }
                 }
             }
-        }
-        else {
-            if (cnt>=numBlockHeaders) {
-                numBlockHeaders+=blockIncrement;
-                blockHeaderPtrs = (const unsigned char**) BLENDPARSER_REALLOC(blockHeaderPtrs,numBlockHeaders*sizeOfPtr);
+            else {
+                if (cnt>=numBlockHeaders) {
+                    numBlockHeaders+=blockIncrement;
+                    blockHeaderPtrs = (const unsigned char**) BLENDPARSER_REALLOC(blockHeaderPtrs,numBlockHeaders*sizeOfPtr);
+                }
+                blockHeaderPtrs[cnt] = pObj;
+                ++cnt;
             }
-            blockHeaderPtrs[cnt] = pObj;
-            ++cnt;
-        }
 
-        objOffset+=objHeaderSize+objDataSize;
-        pObj = &blendPtr[objOffset];
+            objOffset+=objHeaderSize+objDataSize;
+            pObj = &blendPtr[objOffset];
+        }
+    }
+    else {
+        uint64_t objDataSize = 0;
+        while (pObj && (objOffset+objHeaderSize<=blendPtrSize)) {
+            if (strncmp((const char*)pObj,"ENDB",4)==0) break;
+            objDataSize = BlendBlockNew::GetDataSize(pObj);
+            //BlendBlockNew::Printf(cnt,pObj,NULL);
+
+            if (strncmp((const char*)pObj,"DNA1",4)==0) {
+                // DNA [I'm not sure if it's still the same or not...]
+                if (objDataSize>12) {
+                    const unsigned char* pDNA = pObj+objHeaderSize;
+                    if (!parseDNA1Block(pDNA,objDataSize)) {
+                        if (dna1Block) {dna1Block->~BlendDNA1Block();BLENDPARSER_FREE(dna1Block);dna1Block=NULL;}
+                    }
+                    else {
+                        _blockDnaPtr=pDNA;
+                        _blockDnaSize=objDataSize;
+                    }
+                }
+            }
+            else {
+                if (cnt>=numBlockHeaders) {
+                    numBlockHeaders+=blockIncrement;
+                    blockHeaderPtrs = (const unsigned char**) BLENDPARSER_REALLOC(blockHeaderPtrs,numBlockHeaders*sizeOfPtr);
+                }
+                blockHeaderPtrs[cnt] = pObj;
+                ++cnt;
+            }
+
+            objOffset+=objHeaderSize+objDataSize;
+            pObj = &blendPtr[objOffset];
+        }
     }
 
     // Free unused memory
     numBlockHeaders=cnt;
     blockHeaderPtrs = (const unsigned char**) BLENDPARSER_REALLOC(blockHeaderPtrs,numBlockHeaders*sizeOfPtr);
+
+    if (blendPtr && blockHeaderPtrs && dna1Block) versionNumber = 1000*(uint16_t)(version[0]-'0')+100*(uint16_t)(version[1]-'0')+10*(uint16_t)(version[2]-'0')+(uint16_t)(version[3]-'0');
 
     return (blendPtr!=NULL);
 }
@@ -936,7 +1164,10 @@ bool BlendFile::generateBlenderSDNACpp(const char *saveFileName, const char *pre
     if (!_blockDnaPtr || !saveFileName || strlen(saveFileName)==0) return false;
     FILE* f = UTF8FileOpen(saveFileName,"wt");
     if (f) {
-        if (blendPtr) fprintf(f,"\n// Generated using %.12s\n",blendPtr);
+        if (blendPtr) {
+            if (fileFormatVersion==0) fprintf(f,"\n// Generated using %.12s\n",blendPtr);
+            else fprintf(f,"\n// Generated using BLENDER-v%u\n",versionNumber);
+        }
         if (prefixText && strlen(prefixText)>0) fprintf(f,"%s",prefixText);
         fprintf(f," = {");
         for (size_t i=0;i<_blockDnaSize;i++)    {
@@ -974,7 +1205,10 @@ bool BlendFile::updatefbtBlendHeader(const char* oldfbtBlendPath,const char* new
     FILE* f = UTF8FileOpen(newfbtBlendPath,"wt");
     if (f) {
 		fwrite(content,startReplacement-content,1,f);
-        if (blendPtr) fprintf(f,"\n\n// Generated using %.12s\n",blendPtr);
+        if (blendPtr) {
+            if (fileFormatVersion==0) fprintf(f,"\n\n// Generated using %.12s\n",blendPtr);
+            else fprintf(f,"\n\n// Generated using BLENDER-v%u\n",versionNumber);
+        }
         fprintf(f,"unsigned char bfBlenderFBT[]");
         fprintf(f," = {");
         for (size_t i=0;i<_blockDnaSize;i++)    {
@@ -995,7 +1229,7 @@ bool BlendFile::updatefbtBlendHeader(const char* oldfbtBlendPath,const char* new
 }
 
 
-int BlendFile::getVersion() const   {return (blendPtr && blockHeaderPtrs && dna1Block) ? 100*(uint16_t)(blendPtr[9]-'0')+10*(uint16_t)(blendPtr[10]-'0')+(uint16_t)(blendPtr[11]-'0') : 0;}
+int BlendFile::getVersion() const   {return versionNumber;/*(blendPtr && blockHeaderPtrs && dna1Block) ? 1000*(uint16_t)(version[0]-'0')+100*(uint16_t)(version[1]-'0')+10*(uint16_t)(version[2]-'0')+(uint16_t)(version[3]-'0') : 0;*/}
 bool BlendFile::is32bit() const {return _uiPointerSize==4;}
 bool BlendFile::isBigEndian() const {return !_bLittleEndian;}
 
@@ -1006,12 +1240,12 @@ int main(int argc, const char* argv[]) {
 	const char* fbtBlendPath = "../fbtBlend.h";
 	bool ok = blendFilePath && FileExists(blendFilePath) && fbtBlendPath && FileExists(fbtBlendPath);
 	if (ok) {
-		BlendFile blendfile;
+        BlendFile blendfile;
 		ok = blendfile.loadFromFile(blendFilePath);	
 		if (ok) {
 			printf("Input Blend File: \"%s\" (v.%d %s %s)\n",blendFilePath,blendfile.getVersion(),blendfile.is32bit() ? "32-bit" : "64-bit",blendfile.isBigEndian() ? "big-endian" : "little-endian");
 			printf("Generating \"Blender.h\"... ");		
-			ok = blendfile.generateBlenderHeader();
+			ok = blendfile.generateBlenderHeader(); /* TODO: For Blender v. 5.0 LTS we get: Input Blend File: "test.blend" (v.0 32-bit big-endian)\nGenerating "Blender.h"... Error.*/
 			if (ok) {
 				printf("Done.\nGenerating \"fbtBlend.h\"... ");
 				ok = blendfile.updatefbtBlendHeader(fbtBlendPath,"fbtBlend.h");

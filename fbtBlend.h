@@ -46,6 +46,8 @@
 
      -> Added support for zstd decompression through #define FBT_USE_ZSTD (it needs linking to -lzstd).
      -> Updated the "ID enums" (please search: [DNA_ID_enums 1/2] and [DNA_ID_enums 2/2]).
+
+     -> Added some mods to change Chunk struct size fields if BLENDER_VERSION>=500 is defined
 */
 #ifndef _fbtBlend_h_
 #define _fbtBlend_h_
@@ -83,6 +85,12 @@
 #include <string.h> //memcmp
 
 #include "Blender.h"	// THIS FILE DEPENDS ON THE BLENDER VERSION (TOGETHER WITH bfBlender.cpp THAT'S AT THE BOTTOM OF THIS FILE)
+#if BLENDER_VERSION>=500
+#   define FBT_BLEND_HEADER_SIZE (17)
+#else
+#   define FBT_BLEND_HEADER_SIZE (12)
+#endif
+
 
 // global config settings
 #ifndef fbtMaxTable
@@ -1903,7 +1911,7 @@ public:
 	{
 		FH_ENDIAN_SWAP  = (1 << 0),
 		FH_CHUNK_64     = (1 << 1),
-		FH_VAR_BITS     = (1 << 2),
+        FH_VAR_BITS     = (1 << 2),
 	};
 
 
@@ -1914,8 +1922,9 @@ public:
 		FBTuint32       m_old;
 		FBTuint32       m_typeid;
 		FBTuint32       m_nr;
-	};
+    }; // size: 20 bytes
 
+#   if BLENDER_VERSION<500
 	struct Chunk64
 	{
 		FBTuint32       m_code;
@@ -1923,18 +1932,28 @@ public:
 		FBTuint64       m_old;
 		FBTuint32       m_typeid;
 		FBTuint32       m_nr;
-	};
+    }; // size: 24 bytes
 
+    struct Chunk
+    {
+        FBTuint32       m_code;
+        FBTuint32       m_len;
+        FBTsize         m_old;
+        FBTuint32       m_typeid;
+        FBTuint32       m_nr;
+    };   // size: 20 or 24 bytes
+#   else
+    struct Chunk64 // warning: fields here are in a different order than previous struct Chunk
+    {
+        FBTuint32       m_code;
+        FBTuint32       m_typeid;
+        FBTuint64       m_old;
+        FBTuint64       m_len;
+        FBTuint64       m_nr;
+    }; // size: 32 bytes
 
-	struct Chunk
-	{
-		FBTuint32       m_code;
-		FBTuint32       m_len;
-		FBTsize         m_old;
-		FBTuint32       m_typeid;
-		FBTuint32       m_nr;
-	};
-
+    typedef struct Chunk64 Chunk;
+#   endif 
 
 	struct MemoryChunk
 	{
@@ -1967,7 +1986,7 @@ public:
 	int reflect(const char* path, const int mode = PM_UNCOMPRESSED, const fbtEndian& endian = FBT_ENDIAN_NATIVE);
 
 
-	const fbtFixedString<12>&   getHeader(void)     const {return m_header;}
+    const fbtFixedString<FBT_BLEND_HEADER_SIZE>&   getHeader(void)     const {return m_header;}
 	const int&                  getVersion(void)    const {return m_fileVersion;}
 	const char*                 getPath(void)       const {return m_curFile; }
 
@@ -2002,11 +2021,10 @@ protected:
 	virtual void*   getFBT(void) = 0;
 	virtual FBTsize getFBTlength(void) = 0;
 
-
-	// lookup name first 7 of 12
+    // lookup name first 7 of FBT_BLEND_HEADER_SIZE
 	const char* m_uhid;
 	const char* m_aluhid; //alternative header string
-	fbtFixedString<12> m_header;
+    fbtFixedString<FBT_BLEND_HEADER_SIZE> m_header;
 
 
 	int m_version, m_fileVersion, m_fileHeader;
@@ -2534,7 +2552,11 @@ const FBTuint32 SDNA = FBT_ID('S', 'D', 'N', 'A');
 
 // Compile asserts
 FBT_ASSERTCOMP(ChunkLen32, sizeof(fbtFile::Chunk32) == 20);
+#if BLENDER_VERSION<500
 FBT_ASSERTCOMP(ChunkLen64, sizeof(fbtFile::Chunk64) == 24);
+#else
+FBT_ASSERTCOMP(ChunkLen64, sizeof(fbtFile::Chunk64) == 32);
+#endif
 
 #if FBT_ARCH == FBT_ARCH_32
 FBT_ASSERTCOMP(ChunkLenNative, sizeof(fbtFile::Chunk32) == sizeof(fbtFile::Chunk));
@@ -2679,7 +2701,7 @@ int fbtFile::parse(const char* path, int mode)
         unsigned char* memory = fbtFile::FBT_GetFileContent(path,&memorySize,"rb");
         int rv = FS_FAILED;
         if (memory) {
-            rv = parse((const void*) memory, memorySize, mode, /*bool suppressHeaderWarning*/false);
+            rv = parse((const void*) memory, memorySize, mode, /*bool suppressHeaderWarning*/false); // rv == -4 is FS_INV_READ
             delete[] (memory);memory=NULL;memorySize=0;
         }
         if (rv==FS_OK) return rv;
@@ -2755,10 +2777,19 @@ int fbtFile::parse(const void* memory, FBTsize sizeInBytes, int mode, bool suppr
 
 int fbtFile::parseHeader(fbtStream* stream, bool suppressHeaderWarning)
 {
-	m_header.resize(12);
-	stream->read(m_header.ptr(), 12);
+    m_header.resize(FBT_BLEND_HEADER_SIZE);
+    stream->read(m_header.ptr(), FBT_BLEND_HEADER_SIZE);
 
-	if (!fbtCharNEq(m_header.c_str(), m_uhid, 6) && !fbtCharNEq(m_header.c_str(), m_aluhid, 7))
+#   if BLENDER_VERSION<500
+    /**
+     * Low level version 0: the m_header is 12 bytes long.
+     * 0-6:  'BLENDER'
+     * 7:    '-' for 8-byte pointers (#SmallBHead8) or '_' for 4-byte pointers (#BHead4)
+     * 8:    'v' for little endian or 'V' for big endian
+     * 9-11: 3 ASCII digits encoding #BLENDER_FILE_VERSION (e.g. '305' for Blender 3.5)
+     */
+
+    if (!fbtCharNEq(m_header.c_str(), m_uhid, 6) && !fbtCharNEq(m_header.c_str(), m_aluhid, 7))
 	{
 		if (!suppressHeaderWarning)
 			fbtPrintf("Unknown header ID '%s'\n", m_header.c_str());
@@ -2790,6 +2821,40 @@ int fbtFile::parseHeader(fbtStream* stream, bool suppressHeaderWarning)
 
 
 	m_fileVersion = atoi(headerMagic);
+#else
+    /**
+     * Lower level version 1: the m_header is 17 bytes long.
+     * 0-6:   'BLENDER'
+     * 7-8:   size of the header in bytes encoded as ASCII digits (always '17' currently)
+     * 9:     always '-'
+     * 10-11: File version format as ASCII digits (always '01' currently)
+     * 12:    always 'v'
+     * 13-16: 4 ASCII digits encoding #BLENDER_FILE_VERSION (e.g. '0405' for Blender 4.5)
+     *
+     * With this header, #LargeBHead8 is always used.
+     */
+
+    if (!fbtCharNEq(m_header.c_str(), m_uhid, 6) && !fbtCharNEq(m_header.c_str(), m_aluhid, 7))
+    {
+        if (!suppressHeaderWarning)
+            fbtPrintf("Unknown header ID '%s'\n", m_header.c_str());
+        return FS_INV_HEADER_STR;
+    }
+
+    // now we must convert:
+    char* headerMagic = m_header.ptr();
+    if (headerMagic[9] != '-' || headerMagic[10] != '0' || headerMagic[11] != '1' || headerMagic[12] != 'v')
+    {
+        if (!suppressHeaderWarning)
+            fbtPrintf("Unknown header format version '%c%c%c%c'\n", headerMagic[9], headerMagic[10], headerMagic[11], headerMagic[12]);
+        return FS_INV_HEADER_STR;
+    }
+
+    m_fileHeader = FH_CHUNK_64 | (FBT_ENDIAN_IS_BIG?FH_ENDIAN_SWAP:0); // always LargeBHead8 with this header format
+    m_fileVersion = 0;
+
+    m_fileVersion = atoi(&headerMagic[13]);
+#endif
 
 	return FS_OK;
 }
@@ -2797,9 +2862,9 @@ int fbtFile::parseHeader(fbtStream* stream, bool suppressHeaderWarning)
 
 int fbtFile::parseStreamImpl(fbtStream* stream, bool suppressHeaderWarning)
 {
-	int status;
+    int status;
 
-	status = parseHeader(stream,suppressHeaderWarning);
+    status = parseHeader(stream,suppressHeaderWarning);
 	if (status != FS_OK)
 	{
 		fbtPrintf("Failed to extract header!\n");
@@ -3018,10 +3083,10 @@ fbtStruct* fbtLinkCompiler::find(fbtStruct* strc, fbtStruct* member, bool isPoin
 int fbtLinkCompiler::link(void)
 {
 	fbtBinTables::OffsM::Pointer md = m_mp->m_offs.ptr();
-	fbtBinTables::OffsM::Pointer fd = m_fp->m_offs.ptr();
+    //fbtBinTables::OffsM::Pointer fd = m_fp->m_offs.ptr();
 
 	FBTsizeType i, i2; 
-	fbtStruct::Members::Pointer p2;
+    //fbtStruct::Members::Pointer p2;
 
 
 	for (i = 0; i < m_mp->m_offs.size(); ++i)
@@ -3032,7 +3097,7 @@ int fbtLinkCompiler::link(void)
 		if (strc->m_link)
 			strc->m_link->m_link = strc;
 
-		p2 = strc->m_members.ptr();
+        //p2 = strc->m_members.ptr();
 
 		//fbtPrintf("+%-3d %s\n", i, m_mp->getStructType(strc));
 		for (i2 = 0; i2 < strc->m_members.size(); ++i2)
@@ -3449,16 +3514,23 @@ int fbtFile::reflect(const char* path, const int mode, const fbtEndian& /*endian
 
 	// put magic
 	//fs->writef("%s%c%c%i", m_uhid, cp, ce, m_version);
-	char header[12] = {0,0,0,0,0,0,0,0,0,0,0,0};
+    char header[FBT_BLEND_HEADER_SIZE] = {};//{0,0,0,0,0,0,0,0,0,0,0,0};
 	char version[33];
 	sprintf(version, "%i",m_version);
 	
 	strncpy(&header[0], m_uhid, 7); // 7 first bytes of header
+#   if BLENDER_VERSION<500
 	header[7] = cp;					// 8th byte = pointer size
 	header[8] = ce;					// 9th byte = endianness
-	strncpy(&header[9], version, 3);// last 3 bytes vor 3 version char
-	
-	fs->write(header, 12);
+    strncpy(&header[9], version, 3);// last 3 bytes for 3 version char
+#   else
+    header[7]='1';header[8]='7'; // header size = 17
+    header[9]='-';
+    header[10]='0';header[11]='1'; // file version format = 01
+    header[12]=ce; // endianness
+    strncpy(&header[13], version, 4);// last 4 bytes for 4 version char
+#   endif
+    fs->write(header, FBT_BLEND_HEADER_SIZE);
 	
 	writeData(fs);
 
@@ -3521,7 +3593,7 @@ int fbtChunk::write(fbtFile::Chunk* src, fbtStream* stream)
 int fbtChunk::read(fbtFile::Chunk* dest, fbtStream* stream, int flags)
 {
 	int bytesRead = 0;
-	bool bitsVary   = (flags & fbtFile::FH_VAR_BITS) != 0;
+    bool bitsVary   = (flags & fbtFile::FH_VAR_BITS) != 0;
 	bool swapEndian = (flags & fbtFile::FH_ENDIAN_SWAP) != 0;
 
 	fbtFile::Chunk64 c64;
@@ -3531,9 +3603,10 @@ int fbtChunk::read(fbtFile::Chunk* dest, fbtStream* stream, int flags)
 
 	if (FBT_VOID8)
 	{
-
-		if (bitsVary)
+        // here we must add support for Blender 5.0+ where most lengths are 64 bit and the Chunk64 field order is different than before
+        if (bitsVary)
 		{
+            FBT_ASSERT(BLENDER_VERSION<500); // old format only (TOTEST: ican this happen?)
 			fbtFile::Chunk32 src;
 			if ((bytesRead = stream->read(&src, Block32)) <= 0)
 			{
@@ -3565,24 +3638,27 @@ int fbtChunk::read(fbtFile::Chunk* dest, fbtStream* stream, int flags)
 			}
 		}
 
-
 		if (swapEndian)
 		{
 			if ((c64.m_code & 0xFFFF) == 0)
 				c64.m_code >>= 16;
 
+#           if BLENDER_VERSION<500
 			c64.m_len    = fbtSwap32(c64.m_len);
 			c64.m_nr     = fbtSwap32(c64.m_nr);
 			c64.m_typeid = fbtSwap32(c64.m_typeid);
+#           else
+            c64.m_typeid = fbtSwap32(c64.m_typeid);
+            c64.m_len    = fbtSwap64(c64.m_len);
+            c64.m_nr     = fbtSwap64(c64.m_nr);
+#           endif
 		}
 
-
-
-		cpy = (fbtFile::Chunk*)(&c64);
+        cpy = (fbtFile::Chunk*)(&c64);
 	}
 	else
 	{
-
+        FBT_ASSERT(BLENDER_VERSION<500); // old format only
 		if (bitsVary)
 		{
 			fbtFile::Chunk64 src;
@@ -3861,7 +3937,7 @@ FBTsize fbtGzStream::write(const void* src, FBTsize nr)
 {
 	if (m_mode == fbtStream::SM_READ) return -1;
 	if (!src || !m_handle) return -1;
-    return gzwrite((gzFile)m_handle,(const voidp) src, nr);
+    return gzwrite((gzFile)m_handle,(/*const*/ voidp) src, nr);
 }
 
 
@@ -5033,7 +5109,7 @@ int fbtBlend::notifyData(void* p, const Chunk& id)
 
 int fbtBlend::writeData(fbtStream* stream)
 {
-	fbtBinTables::OffsM::Pointer md = m_memory->m_offs.ptr();
+    //fbtBinTables::OffsM::Pointer md = m_memory->m_offs.ptr();
 
 
 	for (MemoryChunk* node = (MemoryChunk*)m_chunks.first; node; node = node->m_next)

@@ -59,6 +59,7 @@ reps/
 **/*.blend1
 *Makefile*
 **/*.qmake.stash
+fbtBlendUpdater/doc/
 
 tests/freeglut.dll
 tests/glut.dll
@@ -153,21 +154,22 @@ test_skeletal_animation/Makefile
 405_LTS/tests/testConsole
 405_LTS/tests/testGlut
 405_LTS/tests/testGlut.cpp
-406/tests/testConsole
-406/tests/testGlut
-406/tests/testGlut.cpp
-407/tests/testConsole
-407/tests/testGlut
-407/tests/testGlut.cpp
-408/tests/testConsole
-408/tests/testGlut
-408/tests/testGlut.cpp
+500/tests/testConsole
+500/tests/testGlut
+500/tests/testGlut.cpp
+501/tests/testConsole
+501/tests/testGlut
+501/tests/testGlut.cpp
+502/tests/testConsole
+502/tests/testGlut
+502/tests/testGlut.cpp
 test_skeletal_animation/minimath.h
 **/issues.txt
 **/man_no_texture.blend
 test_skeletal_animation_software_skinning/
 test_character2c/
 LICENSE.txt
+**/*.pdf
 
 
 
