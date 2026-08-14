@@ -4807,7 +4807,7 @@ void fbtDebugger::report(const char* fmt, ...)
 		{
 #if FBT_COMPILER == FBT_COMPILER_MSVC && _WIN32_WINNT >= 0x0400 && _MSC_VER>=1400
 			if (IsDebuggerPresent())
-				OutputDebugString(ReportBuf);
+				OutputDebugStringA(ReportBuf);
 
 #endif
 			m_report.m_hook(m_report.m_client, ReportBuf);
@@ -4817,7 +4817,7 @@ void fbtDebugger::report(const char* fmt, ...)
 
 #if FBT_COMPILER == FBT_COMPILER_MSVC && _WIN32_WINNT >= 0x0400 && _MSC_VER>=1400
 			if (IsDebuggerPresent())
-				OutputDebugString(ReportBuf);
+				OutputDebugStringA(ReportBuf);
 			else
 #endif
 				fprintf(stderr, "%s", ReportBuf);

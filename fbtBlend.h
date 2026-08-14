@@ -48,6 +48,7 @@
      -> Updated the "ID enums" (please search: [DNA_ID_enums 1/2] and [DNA_ID_enums 2/2]).
 
      -> Added some mods to change Chunk struct size fields if BLENDER_VERSION>=500 is defined
+     -> Replaced OutputDebugString with OutputDebugStringA on Windows. OutputDebugString apparently expects LPCWSTR, not char - Simon L.
 */
 #ifndef _fbtBlend_h_
 #define _fbtBlend_h_
@@ -4883,7 +4884,7 @@ void fbtDebugger::report(const char* fmt, ...)
 		{
 #if FBT_COMPILER == FBT_COMPILER_MSVC && _WIN32_WINNT >= 0x0400 && _MSC_VER>=1400
 			if (IsDebuggerPresent())
-				OutputDebugString(ReportBuf);
+				OutputDebugStringA(ReportBuf);
 
 #endif
 			m_report.m_hook(m_report.m_client, ReportBuf);
@@ -4893,7 +4894,7 @@ void fbtDebugger::report(const char* fmt, ...)
 
 #if FBT_COMPILER == FBT_COMPILER_MSVC && _WIN32_WINNT >= 0x0400 && _MSC_VER>=1400
 			if (IsDebuggerPresent())
-				OutputDebugString(ReportBuf);
+				OutputDebugStringA(ReportBuf);
 			else
 #endif
 				fprintf(stderr, "%s", ReportBuf);
